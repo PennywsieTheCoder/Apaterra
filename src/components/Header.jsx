@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, NavLink } from 'react-router-dom'
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { Menu, Search, ShoppingCart, UserRound, X } from 'lucide-react'
 import BrandMark from './BrandMark'
 import { useCart } from '../context/cart-store'
@@ -8,16 +8,29 @@ const links = [['Shop', '/shop'], ['Routines', '/routines'], ['Hair needs', '/ha
 
 export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false)
+  const [searchTerm, setSearchTerm] = useState('')
   const { itemCount, setIsOpen } = useCart()
+  const { pathname } = useLocation()
+  const navigate = useNavigate()
+  const isHome = pathname === '/'
+
+  function submitSearch(event) {
+    event.preventDefault()
+    const query = searchTerm.trim()
+    navigate(query ? `/shop?search=${encodeURIComponent(query)}` : '/shop')
+  }
 
   return (
-    <><div className="announcement-bar"><span>Rooted care for curls, coils & locs</span><span>Free delivery in Accra over GH₵250</span></div><header className="site-header">
+    <><div className="announcement-bar"><span>Rooted care for curls, coils & locs</span><span>Free delivery in Accra over GH₵250</span></div><header className={`site-header ${isHome ? 'home-header' : ''}`}>
       <Link className="brand" to="/" aria-label="Apaterra home"><BrandMark /><span className="brand-name">apaterra</span></Link>
       <nav className="desktop-nav" aria-label="Main navigation">
         {links.map(([label, href]) => <NavLink key={label} to={href}>{label}</NavLink>)}
       </nav>
       <div className="header-actions">
-        <Link to="/shop" aria-label="Search products"><Search size={18} /></Link>
+        <form className="header-search" role="search" onSubmit={submitSearch}>
+          <button type="submit" aria-label="Submit product search"><Search size={17} /></button>
+          <input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Search products" aria-label="Search products" />
+        </form>
         <button type="button" aria-label="Account preview"><UserRound size={18} /></button>
         <button type="button" className="cart-button" aria-label={`Shopping cart with ${itemCount} items`} onClick={() => setIsOpen(true)}><ShoppingCart size={20} /><span className="cart-count">{itemCount}</span></button>
         <button type="button" className="menu-button" aria-label="Open navigation" onClick={() => setMenuOpen(true)}><Menu size={21} /></button>

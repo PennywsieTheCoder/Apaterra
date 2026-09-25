@@ -6,11 +6,11 @@ import balanceCleanseImage from '../assets/products/balance-cleanse.jpg'
 import coilCustardImage from '../assets/products/coil-custard.jpg'
 import strengthRinseImage from '../assets/products/strength-rinse.jpg'
 import braidMistImage from '../assets/products/braid-mist.jpg'
-import moistureNeedImage from '../assets/hair-needs/moisture.jpg'
-import breakageNeedImage from '../assets/hair-needs/breakage.jpg'
-import scalpNeedImage from '../assets/hair-needs/scalp-care.jpg'
-import protectiveNeedImage from '../assets/hair-needs/protective-styles.jpg'
-import definitionNeedImage from '../assets/hair-needs/definition.jpg'
+import moistureNeedImage from '../assets/hair-needs/moisture-v2.png'
+import breakageNeedImage from '../assets/hair-needs/breakage-v2.png'
+import scalpNeedImage from '../assets/hair-needs/scalp-care-v2.png'
+import protectiveNeedImage from '../assets/hair-needs/protective-styles-v2.png'
+import definitionNeedImage from '../assets/hair-needs/definition-v2.png'
 
 export const categories = [
   'All',
@@ -42,6 +42,7 @@ export const products = [
     size: '300 ml',
     visual: 'product-wash',
     image: moistureWashImage,
+    cardColor: '#cbbb9f',
     badge: 'Bestseller',
     description: 'A gentle, creamy cleanser that lifts buildup without leaving textured hair feeling stripped.',
     benefits: ['Cleanses gently', 'Supports moisture retention', 'Softens during wash day'],
@@ -58,6 +59,7 @@ export const products = [
     size: '250 ml',
     visual: 'product-mask',
     image: softeningRitualImage,
+    cardColor: '#c9c1df',
     badge: 'Wash-day essential',
     description: 'A rich conditioning treatment created to improve softness, slip and manageability.',
     benefits: ['Deeply conditions', 'Helps with detangling', 'Reduces dry feel'],
@@ -74,6 +76,7 @@ export const products = [
     size: '50 ml',
     visual: 'product-oil',
     image: rootedDropsImage,
+    cardColor: '#c9c1aa',
     badge: 'Lightweight',
     description: 'A lightweight botanical oil for dry scalps, protective styles and sealing in moisture.',
     benefits: ['Comforts dry scalp', 'Adds lightweight shine', 'Easy precision application'],
@@ -90,6 +93,7 @@ export const products = [
     size: '250 ml',
     visual: 'product-leavein',
     image: dailyVeilImage,
+    cardColor: '#d7d8d4',
     badge: 'Everyday care',
     description: 'A weightless leave-in that restores softness and prepares curls and coils for styling.',
     benefits: ['Hydrates without heaviness', 'Improves slip', 'Prepares hair for styling'],
@@ -106,6 +110,7 @@ export const products = [
     size: '300 ml',
     visual: 'product-scalp',
     image: balanceCleanseImage,
+    cardColor: '#d7e5de',
     badge: 'Fresh start',
     description: 'A targeted cleanser that refreshes the scalp and removes product buildup while respecting the hair.',
     benefits: ['Clarifies buildup', 'Refreshes the scalp', 'Suitable for protective-style takedown'],
@@ -122,6 +127,7 @@ export const products = [
     size: '300 ml',
     visual: 'product-custard',
     image: coilCustardImage,
+    cardColor: '#d8d0cc',
     badge: 'Flexible hold',
     description: 'A soft-hold styling custard for defined twist-outs, braid-outs and wash-and-go styles.',
     benefits: ['Defines curls and coils', 'Controls frizz', 'Leaves a soft finish'],
@@ -138,6 +144,7 @@ export const products = [
     size: '300 ml',
     visual: 'product-conditioner',
     image: strengthRinseImage,
+    cardColor: '#e5cbbb',
     badge: 'Strength care',
     description: 'A strengthening rinse-out conditioner for fragile strands and hair prone to breakage.',
     benefits: ['Supports fragile hair', 'Softens and detangles', 'Improves manageability'],
@@ -154,6 +161,7 @@ export const products = [
     size: '200 ml',
     visual: 'product-mist',
     image: braidMistImage,
+    cardColor: '#c8c6b8',
     badge: 'Protective care',
     description: 'A fine hydrating mist that refreshes braids, twists and locs without heavy residue.',
     benefits: ['Refreshes dry styles', 'Lightweight hydration', 'Helps soothe the scalp'],

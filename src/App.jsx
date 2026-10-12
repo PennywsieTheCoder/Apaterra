@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import './App.css'
+import BackToTop from './components/BackToTop'
 import CartDrawer from './components/CartDrawer'
 import Footer from './components/Footer'
 import Header from './components/Header'
@@ -26,6 +27,7 @@ function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <Footer />
+      <BackToTop />
       <CartDrawer />
     </div>
   )

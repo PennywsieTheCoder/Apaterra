@@ -6,11 +6,11 @@ import balanceCleanseImage from '../assets/products/balance-cleanse.jpg'
 import coilCustardImage from '../assets/products/coil-custard.jpg'
 import strengthRinseImage from '../assets/products/strength-rinse.jpg'
 import braidMistImage from '../assets/products/braid-mist.jpg'
-import moistureNeedImage from '../assets/hair-needs/moisture-v2.png'
-import breakageNeedImage from '../assets/hair-needs/breakage-v2.png'
-import scalpNeedImage from '../assets/hair-needs/scalp-care-v2.png'
-import protectiveNeedImage from '../assets/hair-needs/protective-styles-v2.png'
-import definitionNeedImage from '../assets/hair-needs/definition-v2.png'
+import moistureNeedImage from '../assets/hair-needs/moisture-v3.png'
+import breakageNeedImage from '../assets/hair-needs/breakage-v3.png'
+import scalpNeedImage from '../assets/hair-needs/scalp-care-v3.png'
+import protectiveNeedImage from '../assets/hair-needs/protective-styles-v3.png'
+import definitionNeedImage from '../assets/hair-needs/definition-v3.png'
 
 export const categories = [
   'All',

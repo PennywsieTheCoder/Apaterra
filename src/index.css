@@ -1,19 +1,19 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap');
 
 :root {
-  --cream: #efe3d0;
-  --paper: #faf5ea;
-  --forest: #173c31;
-  --forest-light: #285c4d;
-  --terracotta: #b95f3b;
-  --terracotta-dark: #8d412a;
-  --sage: #d8dfca;
-  --ochre: #cf9c38;
-  --cocoa: #3a241d;
-  --ink: #241f1a;
-  --ink-soft: #453d35;
-  --muted: #746c61;
-  --border: #d7cdbd;
+  --cream: #d1d3c6;
+  --paper: #f5f3ea;
+  --forest: #4e5e47;
+  --forest-light: #62725b;
+  --terracotta: #596b53;
+  --terracotta-dark: #40503e;
+  --sage: #b6c1a6;
+  --ochre: #94a187;
+  --cocoa: #303a31;
+  --ink: #30372f;
+  --ink-soft: #485147;
+  --muted: #697166;
+  --border: #c9ccbf;
   --serif: 'Newsreader', Georgia, serif;
   --sans: 'DM Sans', 'Segoe UI', sans-serif;
   color: var(--ink);
@@ -29,5 +29,5 @@
 html { scroll-behavior: smooth; }
 body { margin: 0; min-width: 320px; min-height: 100vh; }
 button, a { -webkit-tap-highlight-color: transparent; }
-button:focus-visible, a:focus-visible { outline: 3px solid rgba(183, 101, 79, 0.38); outline-offset: 3px; }
+button:focus-visible, a:focus-visible { outline: 3px solid rgba(78, 94, 71, 0.42); outline-offset: 3px; }
 ::selection { background: var(--sage); color: var(--forest); }

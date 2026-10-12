@@ -1,13 +1,14 @@
 import { Link } from 'react-router-dom'
-import heroImage from '../assets/apaterra-hero-v3.png'
+import heroImage from '../assets/apaterra-hero-v4.png'
+import routineImage from '../assets/apaterra-routine-v1.png'
 import ProductCard from '../components/ProductCard'
 import ScrollReveal from '../components/ScrollReveal'
 import { hairNeeds, products } from '../data/catalog'
 
 const benefits = [
-  ['01', 'Rooted in care', 'Thoughtful formulas created for the needs of African-textured hair.'],
-  ['02', 'Routine made simple', 'Clear guidance helps you build a routine without the guesswork.'],
-  ['03', 'Made for consistency', 'Everyday essentials that support healthy hair over time.'],
+  ['Rooted in care', 'Thoughtful formulas created for the needs of African-textured hair.'],
+  ['Routine made simple', 'Clear guidance helps you build a routine without the guesswork.'],
+  ['Made for consistency', 'Everyday essentials that support healthy hair over time.'],
 ]
 
 export default function HomePage() {
@@ -24,8 +25,21 @@ export default function HomePage() {
       </ScrollReveal>
 
       <ScrollReveal className="routine-feature">
-        <div className="routine-visual routine-photo"><img src={products[7].image} alt="Apaterra moisture ritual products" loading="lazy" /></div>
-        <div className="routine-copy"><p className="eyebrow">The moisture ritual</p><h2>A complete wash day,<br />thoughtfully layered.</h2><p>Cleanse gently, replenish deeply and seal in moisture. Three purposeful steps designed to work better together.</p><ol><li><span>01</span>Cleanse without stripping</li><li><span>02</span>Deeply condition and detangle</li><li><span>03</span>Hydrate and protect</li></ol><Link className="text-link" to="/routines">Discover the routine <span>→</span></Link></div>
+        <div className="routine-visual routine-photo">
+          <img src={routineImage} alt="Three botanical hair-care products arranged on warm stone plinths" loading="lazy" />
+          <div className="routine-image-caption"><span>Wash day, considered</span><strong>Three essential steps</strong></div>
+        </div>
+        <div className="routine-copy">
+          <p className="eyebrow">The moisture ritual</p>
+          <h2>A complete wash day,<br />thoughtfully layered.</h2>
+          <p>Cleanse gently, replenish deeply and seal in moisture. Three purposeful steps designed to work better together.</p>
+          <ol>
+            <li><span>01</span><strong>Cleanse without stripping</strong></li>
+            <li><span>02</span><strong>Deeply condition and detangle</strong></li>
+            <li><span>03</span><strong>Hydrate and protect</strong></li>
+          </ol>
+          <Link className="text-link" to="/routines">Discover the routine <span>→</span></Link>
+        </div>
       </ScrollReveal>
 
       <ScrollReveal className="featured-section">
@@ -34,8 +48,8 @@ export default function HomePage() {
       </ScrollReveal>
 
       <ScrollReveal className="brand-principles">
-        <div className="section-heading"><p className="eyebrow">The Apaterra approach</p><h2>Healthy hair starts with<br />care that understands it.</h2></div>
-        <div className="principle-grid">{benefits.map(([number, title, copy]) => <article key={number}><span>{number}</span><h3>{title}</h3><p>{copy}</p></article>)}</div>
+        <div className="section-heading"><p className="eyebrow">Our care philosophy</p><h2>Healthy hair starts with<br />care that understands it.</h2></div>
+        <div className="principle-grid">{benefits.map(([title, copy]) => <article key={title}><h3>{title}</h3><p>{copy}</p></article>)}</div>
       </ScrollReveal>
     </main>
   )

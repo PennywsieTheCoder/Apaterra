@@ -1021,7 +1021,7 @@
   left: 0;
   padding-left: clamp(1.25rem, 5vw, 5rem);
   padding-right: clamp(1.25rem, 5vw, 5rem);
-  margin-bottom: -76px;
+  margin-bottom: -62px;
   position: sticky;
   right: 0;
   top: 0;
@@ -1060,7 +1060,7 @@
 }
 
 @media (max-width: 560px) {
-  .home-header { left: 0; right: 0; }
+  .home-header { left: 0; margin-bottom: -60px; right: 0; }
   .site-header .brand-logo { height: 36px; width: 100px; }
   .site-header .brand-logo img { left: -2px; top: -12px; width: 105px; }
   .home-header .brand-name { font-size: 0.82rem; letter-spacing: 0.18em; }
@@ -1801,13 +1801,17 @@ body,
 
 .announcement-bar { background: #40503e; color: #f5f3ea; }
 .site-header { background: rgba(245, 243, 234, 0.95); border-bottom-color: rgba(78, 94, 71, 0.18); }
-.home-header { background: transparent; border-bottom-color: rgba(64, 80, 62, 0.22); }
+.home-header {
+  backdrop-filter: blur(14px);
+  background: rgba(245, 243, 234, 0.98);
+  border-bottom-color: rgba(78, 94, 71, 0.18);
+}
 .header-search,
 .shop-toolbar label { background: rgba(245, 243, 234, 0.94); border-color: rgba(78, 94, 71, 0.2); }
 .header-search:focus-within { border-color: rgba(78, 94, 71, 0.55); box-shadow: 0 0 0 3px rgba(78, 94, 71, 0.1); }
 
-.home-page .hero-section { background: #d1d3c6; }
-.home-page .hero-visual::after { background: linear-gradient(90deg, #d1d3c6 0%, rgba(209,211,198,0.96) 25%, rgba(209,211,198,0.46) 43%, transparent 60%); }
+.home-page .hero-section { background: #b6c1a6; }
+.home-page .hero-visual::after { background: linear-gradient(90deg, #b6c1a6 0%, rgba(182,193,166,0.96) 25%, rgba(182,193,166,0.52) 43%, transparent 60%); }
 .home-page .hero-copy .button-primary,
 .empty-results button,
 .routines-page .button-primary,
@@ -1886,11 +1890,11 @@ body,
 .footer-showcase .footer-brand .brand-logo img { filter: brightness(0) invert(1); opacity: 0.9; }
 
 @media (max-width: 900px) {
-  .home-page .hero-visual::after { background: linear-gradient(90deg, #d1d3c6 0%, rgba(209,211,198,0.92) 38%, rgba(209,211,198,0.2) 72%, transparent); }
+  .home-page .hero-visual::after { background: linear-gradient(90deg, #b6c1a6 0%, rgba(182,193,166,0.92) 38%, rgba(182,193,166,0.24) 72%, transparent); }
 }
 
 @media (max-width: 560px) {
-  .home-page .hero-visual::after { background: linear-gradient(180deg, rgba(209,211,198,0.1), rgba(209,211,198,0.32) 38%, #d1d3c6 80%); }
+  .home-page .hero-visual::after { background: linear-gradient(180deg, rgba(182,193,166,0.08), rgba(182,193,166,0.3) 38%, #b6c1a6 80%); }
   .shop-banner .page-banner-visual img { background: #edf0e8; }
 
   /* Keep the wordmark readable over every point of the mobile hero. */

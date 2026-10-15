@@ -13,8 +13,10 @@ export default function ProductCard({ product }) {
         <p className="product-card-type">{product.type}</p>
         <Link to={`/products/${product.id}`}><h3>{product.name}</h3></Link>
         <p className="product-card-description">{product.description}</p>
-        <div className="product-card-price"><strong>{formatMoney(product.price)}</strong></div>
-        <div className="product-card-options"><span>{product.size}</span></div>
+        <div className="product-card-meta">
+          <div className="product-card-price"><strong>{formatMoney(product.price)}</strong></div>
+          <div className="product-card-options"><span>{product.size}</span></div>
+        </div>
         <div className="product-card-actions">
           <button type="button" className="product-save-button" aria-label={`Save ${product.name}`}><Heart size={16} /></button>
           <button type="button" className="product-add-button" onClick={() => addItem(product)}><span>Add to cart</span><ShoppingBag size={15} /></button>

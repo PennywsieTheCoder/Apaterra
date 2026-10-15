@@ -40,3 +40,11 @@ export default function Footer() {
     </footer>
   )
 }
+
+export function CompactFooter() {
+  return <footer className="compact-footer">
+    <div className="compact-footer-brand"><Link className="brand" to="/" aria-label="Apa Terra home"><BrandMark /></Link><p>Rooted care for African-textured hair.</p></div>
+    <nav aria-label="Account footer navigation"><Link to="/shop">Shop</Link><Link to="/routines">Routines</Link><Link to="/story">Our story</Link></nav>
+    <div className="compact-footer-meta"><span>© {new Date().getFullYear()} Apaterra</span><span>Rooted in Ghana · GHS</span></div>
+  </footer>
+}

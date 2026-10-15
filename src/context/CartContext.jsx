@@ -19,12 +19,18 @@ export function CartProvider({ children }) {
     setItems((current) => current.map((item) => item.id === productId ? { ...item, quantity } : item))
   }
 
+  function clearCart() {
+    setItems([])
+    setIsOpen(false)
+  }
+
   const value = useMemo(() => ({
     items,
     isOpen,
     setIsOpen,
     addItem,
     changeQuantity,
+    clearCart,
     itemCount: items.reduce((total, item) => total + item.quantity, 0),
     subtotal: items.reduce((total, item) => total + item.price * item.quantity, 0),
   }), [items, isOpen])

@@ -1,8 +1,8 @@
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import './App.css'
 import BackToTop from './components/BackToTop'
 import CartDrawer from './components/CartDrawer'
-import Footer from './components/Footer'
+import Footer, { CompactFooter } from './components/Footer'
 import Header from './components/Header'
 import ScrollToTop from './components/ScrollToTop'
 import HomePage from './pages/HomePage'
@@ -11,8 +11,12 @@ import ProductPage from './pages/ProductPage'
 import RoutinesPage from './pages/RoutinesPage'
 import ShopPage from './pages/ShopPage'
 import StoryPage from './pages/StoryPage'
+import CheckoutPage from './pages/CheckoutPage'
+import AccountPage from './pages/AccountPage'
 
 function App() {
+  const { pathname } = useLocation()
+
   return (
     <div className="site-shell">
       <ScrollToTop />
@@ -24,9 +28,12 @@ function App() {
         <Route path="/routines" element={<RoutinesPage />} />
         <Route path="/hair-needs" element={<HairNeedsPage />} />
         <Route path="/story" element={<StoryPage />} />
+        <Route path="/checkout" element={<CheckoutPage />} />
+        <Route path="/account" element={<AccountPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-      <Footer />
+      {pathname === '/account' && <CompactFooter />}
+      {pathname !== '/account' && pathname !== '/checkout' && <Footer />}
       <BackToTop />
       <CartDrawer />
     </div>

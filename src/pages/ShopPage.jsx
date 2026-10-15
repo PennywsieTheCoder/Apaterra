@@ -1,13 +1,14 @@
-import { ChevronDown, SlidersHorizontal, X } from 'lucide-react'
-import { useMemo } from 'react'
+import { ArrowUpRight, Check, Leaf, SlidersHorizontal, X } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useSearchParams } from 'react-router-dom'
 import ProductCard from '../components/ProductCard'
-import PageBanner from '../components/PageBanner'
 import ScrollReveal from '../components/ScrollReveal'
 import { categories, hairNeeds, products } from '../data/catalog'
 
 export default function ShopPage() {
   const [params, setParams] = useSearchParams()
+  const [filtersOpen, setFiltersOpen] = useState(false)
   const category = params.get('category') || 'All'
   const need = params.get('need') || ''
   const search = params.get('search') || ''
@@ -31,25 +32,77 @@ export default function ShopPage() {
     setParams({})
   }
 
+  const activeFilters = [
+    category !== 'All' && { key: 'category', label: category, clearValue: 'All' },
+    need && { key: 'need', label: need, clearValue: '' },
+    search && { key: 'search', label: `“${search}”`, clearValue: '' },
+  ].filter(Boolean)
+
+  useEffect(() => {
+    if (!filtersOpen) return undefined
+    const previousOverflow = document.body.style.overflow
+    const closeOnEscape = (event) => event.key === 'Escape' && setFiltersOpen(false)
+    document.body.style.overflow = 'hidden'
+    window.addEventListener('keydown', closeOnEscape)
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [filtersOpen])
+
   return <main className="shop-page page-shell">
-    <PageBanner eyebrow="The collection" title={<>Care for every part<br />of your routine.</>} copy="Explore purposeful formulas for cleansing, moisture, strength, scalp health and styling." images={[products[7].image, products[2].image]} variant="shop-banner" />
-    <ScrollReveal as="div" className="shop-toolbar"><span><SlidersHorizontal size={16} /> {filtered.length} products</span></ScrollReveal>
+    <ScrollReveal className="shop-hero" rootMargin="0px 0px 8% 0px" threshold={0.05}>
+      <div className="shop-hero-copy">
+        <p className="eyebrow">The Apa Terra collection</p>
+        <h1>Care chosen with intention.</h1>
+        <p>Build a routine around what your hair needs today—without the guesswork.</p>
+        <div className="shop-hero-points"><span><Leaf size={14} /> Purposeful formulas</span><span>Made for textured hair</span></div>
+      </div>
+      <div className="shop-hero-gallery" aria-hidden="true">
+        <div className="shop-hero-image shop-hero-image-main"><img src={products[7].image} alt="" /></div>
+        <div className="shop-hero-image shop-hero-image-secondary"><img src={products[2].image} alt="" /></div>
+      </div>
+    </ScrollReveal>
+    <ScrollReveal as="div" className="shop-toolbar">
+      <div className="shop-results-title"><strong>Shop the collection</strong></div>
+      <div className="shop-active-filters">
+        {activeFilters.length ? activeFilters.map((filter) => <button type="button" key={filter.key} onClick={() => updateFilter(filter.key, filter.clearValue)}>{filter.label}<X size={12} /></button>) : <span>Showing the full collection</span>}
+      </div>
+    </ScrollReveal>
     <ScrollReveal as="div" className="shop-layout" rootMargin="0px 0px 8% 0px" threshold={0.05}>
-      <aside className="filter-panel"><div><h2>Category</h2>{categories.map((item) => <button type="button" className={category === item ? 'active' : ''} onClick={() => updateFilter('category', item)} key={item}>{item}</button>)}</div><div><h2>Hair need</h2>{hairNeeds.map(({ name }) => <button type="button" className={need === name ? 'active' : ''} onClick={() => updateFilter('need', need === name ? '' : name)} key={name}>{name}</button>)}</div>{(category !== 'All' || need || search) && <button type="button" className="reset-filters" onClick={resetFilters}><X size={14} /> Reset filters</button>}</aside>
+      <aside className="filter-panel">
+        <div className="filter-panel-heading"><div><p>Refine</p><h2>Find your care</h2></div><SlidersHorizontal size={18} /></div>
+        <div className="filter-group"><h3>Category</h3>{categories.map((item) => <button type="button" className={category === item ? 'active' : ''} onClick={() => updateFilter('category', item)} key={item}><span>{item}</span><small>{item === 'All' ? products.length : products.filter((product) => product.category === item).length}</small></button>)}</div>
+        <div className="filter-group"><h3>Hair need</h3>{hairNeeds.map(({ name }) => <button type="button" className={need === name ? 'active' : ''} onClick={() => updateFilter('need', need === name ? '' : name)} key={name}><span>{name}</span><ArrowUpRight size={13} /></button>)}</div>
+        {(category !== 'All' || need || search) && <button type="button" className="reset-filters" onClick={resetFilters}><X size={14} /> Reset filters</button>}
+      </aside>
       <section><div className="mobile-filter-row">
-        <div className="mobile-filter-heading">
-          <span><SlidersHorizontal size={15} /> Refine your routine</span>
-          {(category !== 'All' || need || search) && <button type="button" onClick={resetFilters}><X size={13} /> Clear</button>}
-        </div>
-        <label className="mobile-filter-control">
-          <span>Category</span>
-          <div><select aria-label="Filter by category" value={category} onChange={(event) => updateFilter('category', event.target.value)}>{categories.map((item) => <option key={item}>{item}</option>)}</select><ChevronDown size={16} aria-hidden="true" /></div>
-        </label>
-        <label className="mobile-filter-control">
-          <span>Hair need</span>
-          <div><select aria-label="Filter by hair need" value={need} onChange={(event) => updateFilter('need', event.target.value)}><option value="">All hair needs</option>{hairNeeds.map(({ name }) => <option key={name}>{name}</option>)}</select><ChevronDown size={16} aria-hidden="true" /></div>
-        </label>
-      </div>{filtered.length ? <div className="product-grid shop-product-grid">{filtered.map((product) => <ProductCard product={product} key={product.id} />)}</div> : <div className="empty-results"><h2>No products found</h2><p>Try another category, hair need or search term.</p><button type="button" onClick={resetFilters}>View all products</button></div>}</section>
+        <button className="mobile-filter-trigger" type="button" aria-haspopup="dialog" aria-expanded={filtersOpen} onClick={() => setFiltersOpen(true)}>
+          <span className="mobile-filter-trigger-icon"><SlidersHorizontal size={18} /></span>
+          <span className="mobile-filter-trigger-copy"><small>Refine collection</small><strong>{activeFilters.length ? activeFilters.map((filter) => filter.label).join(' · ') : 'All products'}</strong></span>
+          <span className={activeFilters.length ? 'mobile-filter-count active' : 'mobile-filter-count'}>{activeFilters.length || 'Filter'}</span>
+        </button>
+        {activeFilters.length > 0 && <div className="mobile-active-filters">{activeFilters.map((filter) => <button type="button" key={filter.key} onClick={() => updateFilter(filter.key, filter.clearValue)}>{filter.label}<X size={12} /></button>)}</div>}
+      </div>
+      {filtersOpen && createPortal(<div className="mobile-filter-backdrop" role="presentation" onMouseDown={() => setFiltersOpen(false)}>
+        <aside className="mobile-filter-sheet" role="dialog" aria-modal="true" aria-labelledby="mobile-filter-title" onMouseDown={(event) => event.stopPropagation()}>
+          <div className="mobile-filter-sheet-handle" />
+          <header><div><p>Refine your ritual</p><h2 id="mobile-filter-title">Find your care</h2></div><button type="button" aria-label="Close filters" onClick={() => setFiltersOpen(false)}><X size={19} /></button></header>
+          <div className="mobile-filter-sheet-body">
+            <section className="mobile-filter-options"><div className="mobile-filter-group-title"><h3>Category</h3><span>{category === 'All' ? 'All products' : category}</span></div><div className="mobile-category-options">{categories.map((item) => {
+              const count = item === 'All' ? products.length : products.filter((product) => product.category === item).length
+              const selected = category === item
+              return <button type="button" className={selected ? 'selected' : ''} aria-pressed={selected} onClick={() => updateFilter('category', item)} key={item}><span>{item}</span><small>{count}</small>{selected && <Check size={14} />}</button>
+            })}</div></section>
+            <section className="mobile-filter-options"><div className="mobile-filter-group-title"><h3>Hair need</h3><span>{need || 'Any need'}</span></div><div className="mobile-need-options">{hairNeeds.map(({ name }) => {
+              const selected = need === name
+              return <button type="button" className={selected ? 'selected' : ''} aria-pressed={selected} onClick={() => updateFilter('need', selected ? '' : name)} key={name}>{selected && <Check size={14} />}<span>{name}</span></button>
+            })}</div></section>
+          </div>
+          <footer>{activeFilters.length > 0 && <button className="mobile-filter-reset" type="button" onClick={resetFilters}>Clear all</button>}<button className="mobile-filter-apply" type="button" onClick={() => setFiltersOpen(false)}>Show {filtered.length} {filtered.length === 1 ? 'product' : 'products'}</button></footer>
+        </aside>
+      </div>, document.body)}
+      {filtered.length ? <div className="product-grid shop-product-grid">{filtered.map((product) => <ProductCard product={product} key={product.id} />)}</div> : <div className="empty-results"><h2>No products found</h2><p>Try another category, hair need or search term.</p><button type="button" onClick={resetFilters}>View all products</button></div>}</section>
     </ScrollReveal>
   </main>
 }

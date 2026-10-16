@@ -4,22 +4,33 @@ import { createPortal } from 'react-dom'
 import { useSearchParams } from 'react-router-dom'
 import ProductCard from '../components/ProductCard'
 import ScrollReveal from '../components/ScrollReveal'
-import { categories, hairNeeds, products } from '../data/catalog'
+import { categories, getProducts, hairNeeds, products } from '../data/catalog'
 
 export default function ShopPage() {
   const [params, setParams] = useSearchParams()
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const [catalogProducts, setCatalogProducts] = useState(getProducts)
   const category = params.get('category') || 'All'
   const need = params.get('need') || ''
   const search = params.get('search') || ''
 
-  const filtered = useMemo(() => products.filter((product) => {
+  const filtered = useMemo(() => catalogProducts.filter((product) => {
     const matchesCategory = category === 'All' || product.category === category
     const matchesNeed = !need || product.needs.includes(need)
     const query = search.trim().toLowerCase()
     const matchesSearch = !query || `${product.name} ${product.type} ${product.category} ${product.needs.join(' ')}`.toLowerCase().includes(query)
     return matchesCategory && matchesNeed && matchesSearch
-  }), [category, need, search])
+  }), [catalogProducts, category, need, search])
+
+  useEffect(() => {
+    const syncCatalog = () => setCatalogProducts(getProducts())
+    window.addEventListener('apaterra-products-updated', syncCatalog)
+    window.addEventListener('storage', syncCatalog)
+    return () => {
+      window.removeEventListener('apaterra-products-updated', syncCatalog)
+      window.removeEventListener('storage', syncCatalog)
+    }
+  }, [])
 
   function updateFilter(key, value) {
     const next = new URLSearchParams(params)
@@ -72,7 +83,7 @@ export default function ShopPage() {
     <ScrollReveal as="div" className="shop-layout" rootMargin="0px 0px 8% 0px" threshold={0.05}>
       <aside className="filter-panel">
         <div className="filter-panel-heading"><div><p>Refine</p><h2>Find your care</h2></div><SlidersHorizontal size={18} /></div>
-        <div className="filter-group"><h3>Category</h3>{categories.map((item) => <button type="button" className={category === item ? 'active' : ''} onClick={() => updateFilter('category', item)} key={item}><span>{item}</span><small>{item === 'All' ? products.length : products.filter((product) => product.category === item).length}</small></button>)}</div>
+        <div className="filter-group"><h3>Category</h3>{categories.map((item) => <button type="button" className={category === item ? 'active' : ''} onClick={() => updateFilter('category', item)} key={item}><span>{item}</span><small>{item === 'All' ? catalogProducts.length : catalogProducts.filter((product) => product.category === item).length}</small></button>)}</div>
         <div className="filter-group"><h3>Hair need</h3>{hairNeeds.map(({ name }) => <button type="button" className={need === name ? 'active' : ''} onClick={() => updateFilter('need', need === name ? '' : name)} key={name}><span>{name}</span><ArrowUpRight size={13} /></button>)}</div>
         {(category !== 'All' || need || search) && <button type="button" className="reset-filters" onClick={resetFilters}><X size={14} /> Reset filters</button>}
       </aside>
@@ -87,10 +98,10 @@ export default function ShopPage() {
       {filtersOpen && createPortal(<div className="mobile-filter-backdrop" role="presentation" onMouseDown={() => setFiltersOpen(false)}>
         <aside className="mobile-filter-sheet" role="dialog" aria-modal="true" aria-labelledby="mobile-filter-title" onMouseDown={(event) => event.stopPropagation()}>
           <div className="mobile-filter-sheet-handle" />
-          <header><div><p>Refine your ritual</p><h2 id="mobile-filter-title">Find your care</h2></div><button type="button" aria-label="Close filters" onClick={() => setFiltersOpen(false)}><X size={19} /></button></header>
+          <header><div><p>Refine your care</p><h2 id="mobile-filter-title">Find your care</h2></div><button type="button" aria-label="Close filters" onClick={() => setFiltersOpen(false)}><X size={19} /></button></header>
           <div className="mobile-filter-sheet-body">
             <section className="mobile-filter-options"><div className="mobile-filter-group-title"><h3>Category</h3><span>{category === 'All' ? 'All products' : category}</span></div><div className="mobile-category-options">{categories.map((item) => {
-              const count = item === 'All' ? products.length : products.filter((product) => product.category === item).length
+              const count = item === 'All' ? catalogProducts.length : catalogProducts.filter((product) => product.category === item).length
               const selected = category === item
               return <button type="button" className={selected ? 'selected' : ''} aria-pressed={selected} onClick={() => updateFilter('category', item)} key={item}><span>{item}</span><small>{count}</small>{selected && <Check size={14} />}</button>
             })}</div></section>

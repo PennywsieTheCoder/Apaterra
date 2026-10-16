@@ -21,7 +21,20 @@ export default function HomePage() {
 
       <ScrollReveal className="needs-section">
         <div className="centered-heading"><p className="eyebrow">Start with what your hair needs</p><h2>Care made easier to choose.</h2><p>Tell us the concern. We’ll help you find the right step.</p></div>
-        <div className="needs-grid">{hairNeeds.map(({ name, description, className, image }) => <Link to={`/shop?need=${encodeURIComponent(name)}`} key={name}><div className={`need-visual need-photo ${className}`}><img src={image} alt={`${name} hair-care`} loading="lazy" /></div><div className="need-copy"><h3>{name}</h3><p>{description}</p></div></Link>)}</div>
+        <div className="needs-grid">
+          {hairNeeds.map(({ name, description, className, image }) => (
+            <Link to={`/shop?need=${encodeURIComponent(name)}`} key={name}>
+              <div className={`need-visual need-photo ${className}`}>
+                <img src={image} alt={`${name} hair-care`} loading="lazy" />
+              </div>
+              <div className="need-copy">
+                <h3>{name}</h3>
+                <p>{description}</p>
+                <span className="need-link-hint">Shop {name} <span aria-hidden="true">→</span></span>
+              </div>
+            </Link>
+          ))}
+        </div>
       </ScrollReveal>
 
       <ScrollReveal className="routine-feature">
@@ -30,7 +43,7 @@ export default function HomePage() {
           <div className="routine-image-caption"><span>Wash day, considered</span><strong>Three essential steps</strong></div>
         </div>
         <div className="routine-copy">
-          <p className="eyebrow">The moisture ritual</p>
+          <p className="eyebrow">The moisture routine</p>
           <h2>A complete wash day,<br />thoughtfully layered.</h2>
           <p>Cleanse gently, replenish deeply and seal in moisture. Three purposeful steps designed to work better together.</p>
           <ol>

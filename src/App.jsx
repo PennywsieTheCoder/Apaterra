@@ -13,6 +13,8 @@ import ShopPage from './pages/ShopPage'
 import StoryPage from './pages/StoryPage'
 import CheckoutPage from './pages/CheckoutPage'
 import AccountPage from './pages/AccountPage'
+import LoginPage from './pages/LoginPage'
+import AdminPage from './pages/AdminPage'
 
 function App() {
   const { pathname } = useLocation()
@@ -20,7 +22,7 @@ function App() {
   return (
     <div className="site-shell">
       <ScrollToTop />
-      <Header />
+      {pathname !== '/login' && <Header />}
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/shop" element={<ShopPage />} />
@@ -30,11 +32,13 @@ function App() {
         <Route path="/story" element={<StoryPage />} />
         <Route path="/checkout" element={<CheckoutPage />} />
         <Route path="/account" element={<AccountPage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/admin" element={<AdminPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       {pathname === '/account' && <CompactFooter />}
-      {pathname !== '/account' && pathname !== '/checkout' && <Footer />}
-      <BackToTop />
+      {pathname !== '/account' && pathname !== '/checkout' && pathname !== '/login' && <Footer />}
+      {pathname !== '/login' && <BackToTop />}
       <CartDrawer />
     </div>
   )

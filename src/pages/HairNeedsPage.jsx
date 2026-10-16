@@ -9,7 +9,7 @@ export default function HairNeedsPage() {
     <main className="hair-needs-page page-shell">
       <PageBanner
         eyebrow="Start with your hair"
-        title={<><span>Your texture.</span><br /><span>Your needs.</span> <span>Your ritual.</span></>}
+        title={<><span>Your texture.</span><br /><span>Your needs.</span> <span>Your care.</span></>}
         copy="Shop with confidence by starting with what your hair needs today—from lasting moisture to protective-style care."
         images={[hairNeeds[4].image, hairNeeds[3].image]}
         variant="needs-banner"

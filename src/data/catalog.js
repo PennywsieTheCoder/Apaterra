@@ -1,5 +1,5 @@
 import moistureWashImage from '../assets/products/moisture-wash.jpg'
-import softeningRitualImage from '../assets/products/softening-ritual.jpg'
+import softeningTreatmentImage from '../assets/products/softening-ritual.jpg'
 import rootedDropsImage from '../assets/products/rooted-drops.jpg'
 import dailyVeilImage from '../assets/products/daily-veil.jpg'
 import balanceCleanseImage from '../assets/products/balance-cleanse.jpg'
@@ -50,15 +50,15 @@ export const products = [
     directions: 'Massage through wet scalp and hair. Work into a rich lather, then rinse thoroughly. Repeat when needed.',
   },
   {
-    id: 'softening-ritual',
-    name: 'Softening Ritual',
+    id: 'softening-treatment',
+    name: 'Softening Treatment',
     type: 'Deep treatment mask',
     category: 'Treatments',
     needs: ['Moisture', 'Breakage'],
     price: 120,
     size: '250 ml',
     visual: 'product-mask',
-    image: softeningRitualImage,
+    image: softeningTreatmentImage,
     cardColor: '#c9c1df',
     badge: 'Wash-day essential',
     description: 'A rich conditioning treatment created to improve softness, slip and manageability.',
@@ -170,13 +170,22 @@ export const products = [
   },
 ]
 
+export function getProducts() {
+  try {
+    const adminProducts = JSON.parse(window.localStorage.getItem('apaterra-admin-products') || '[]')
+    return Array.isArray(adminProducts) ? [...products, ...adminProducts] : products
+  } catch {
+    return products
+  }
+}
+
 export const routines = [
   {
-    id: 'moisture-ritual',
-    eyebrow: 'The moisture ritual',
+    id: 'moisture-routine',
+    eyebrow: 'The moisture routine',
     name: 'A complete wash day, thoughtfully layered.',
     description: 'Cleanse gently, replenish deeply and seal in moisture. Three purposeful steps designed to work better together.',
-    productIds: ['moisture-wash', 'softening-ritual', 'daily-veil'],
+    productIds: ['moisture-wash', 'softening-treatment', 'daily-veil'],
     steps: ['Cleanse without stripping', 'Deeply condition and detangle', 'Hydrate and protect'],
   },
   {

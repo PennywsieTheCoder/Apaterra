@@ -1,16 +1,58 @@
+import { useState } from 'react'
 import { ArrowUpRight, MessageCircle, Music2, ShieldCheck, Truck } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import footerImage from '../assets/footer-apaterra-v4.png'
+import footerImage from '../assets/footer-apaterra-v4.jpg'
 import syntiqLogo from '../assets/syntiq-labs-logo.png'
 import BrandMark from './BrandMark'
+import { supabase } from '../lib/supabase'
 
 export default function Footer() {
+  const [email, setEmail] = useState('')
+  const [newsletterMessage, setNewsletterMessage] = useState('')
+  const [isSubscribing, setIsSubscribing] = useState(false)
+
+  async function subscribeToNewsletter(event) {
+    event.preventDefault()
+    const normalizedEmail = email.trim().toLowerCase()
+    if (!normalizedEmail) {
+      setNewsletterMessage('Enter your email address to join.')
+      return
+    }
+    if (!supabase) {
+      setNewsletterMessage('Newsletter sign-up is not available yet.')
+      return
+    }
+
+    setIsSubscribing(true)
+    setNewsletterMessage('')
+    const { error } = await supabase.rpc('subscribe_to_newsletter', { p_email: normalizedEmail })
+    if (error) {
+      setNewsletterMessage(error.message)
+    } else {
+      setEmail('')
+      setNewsletterMessage('You’re on the list. Welcome to Apa Terra.')
+    }
+    setIsSubscribing(false)
+  }
+
   return (
     <footer className="site-footer footer-showcase" style={{ '--footer-image': `url(${footerImage})` }}>
       <div className="footer-newsletter-hero">
-        <p>Notes from Apaterra</p>
-        <h2>Join our circle.<br />Care for every crown.</h2>
-        <form onSubmit={(event) => event.preventDefault()}><input type="email" placeholder="Email address" aria-label="Email address" /><button type="submit">Join the circle <ArrowUpRight size={16} /></button></form>
+        <form onSubmit={subscribeToNewsletter}>
+          <input
+            type="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder="Email address"
+            aria-label="Email address"
+            autoComplete="email"
+            required
+          />
+          <button type="submit" disabled={isSubscribing}>
+            {isSubscribing ? 'Joining…' : 'Join the circle'} <ArrowUpRight size={16} />
+          </button>
+        </form>
+        {newsletterMessage && <p className="footer-newsletter-message" role="status">{newsletterMessage}</p>}
       </div>
       <div className="footer-panel-wrap">
         <div className="footer-panel">

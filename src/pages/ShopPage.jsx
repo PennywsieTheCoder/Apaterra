@@ -4,12 +4,13 @@ import { createPortal } from 'react-dom'
 import { useSearchParams } from 'react-router-dom'
 import ProductCard from '../components/ProductCard'
 import ScrollReveal from '../components/ScrollReveal'
-import { categories, getProducts, hairNeeds, products } from '../data/catalog'
+import { useCatalog } from '../context/catalog-store'
+import { categories, hairNeeds, products } from '../data/catalog'
 
 export default function ShopPage() {
   const [params, setParams] = useSearchParams()
   const [filtersOpen, setFiltersOpen] = useState(false)
-  const [catalogProducts, setCatalogProducts] = useState(getProducts)
+  const { products: catalogProducts } = useCatalog()
   const category = params.get('category') || 'All'
   const need = params.get('need') || ''
   const search = params.get('search') || ''
@@ -21,16 +22,6 @@ export default function ShopPage() {
     const matchesSearch = !query || `${product.name} ${product.type} ${product.category} ${product.needs.join(' ')}`.toLowerCase().includes(query)
     return matchesCategory && matchesNeed && matchesSearch
   }), [catalogProducts, category, need, search])
-
-  useEffect(() => {
-    const syncCatalog = () => setCatalogProducts(getProducts())
-    window.addEventListener('apaterra-products-updated', syncCatalog)
-    window.addEventListener('storage', syncCatalog)
-    return () => {
-      window.removeEventListener('apaterra-products-updated', syncCatalog)
-      window.removeEventListener('storage', syncCatalog)
-    }
-  }, [])
 
   function updateFilter(key, value) {
     const next = new URLSearchParams(params)

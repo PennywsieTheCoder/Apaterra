@@ -1,60 +1,71 @@
-import { useEffect, useState } from 'react'
-import {
-  ArrowLeft,
-  ArrowRight,
-  Eye,
-  EyeOff,
-  Leaf,
-  LockKeyhole,
-  Mail,
-  Smartphone,
-  UserRound,
-} from 'lucide-react'
-import { Link, useNavigate } from 'react-router-dom'
-import heroImage from '../assets/apaterra-hero-v4.png'
-import routineImage from '../assets/apaterra-routine-v1.png'
-import protectiveImage from '../assets/hair-needs/protective-styles-v3.png'
-
-const slides = [
-  {
-    image: heroImage,
-    title: 'Stay rooted.',
-    subtitle: 'Crown your texture.',
-  },
-  {
-    image: routineImage,
-    title: 'Pure botanicals.',
-    subtitle: 'Step-by-step care.',
-  },
-  {
-    image: protectiveImage,
-    title: 'Care without compromise.',
-    subtitle: 'Nourished coils & braids.',
-  },
-]
+import { useState } from 'react'
+import { ArrowRight, Eye, EyeOff, LockKeyhole, ShieldUser, UserRound } from 'lucide-react'
+import { useLocation, useNavigate } from 'react-router-dom'
+import BrandMark from '../components/BrandMark'
+import loginAfro from '../assets/login-afro-wide.jpg'
+import { useAuth } from '../context/auth-store'
 
 export default function LoginPage() {
-  const [isSignUp, setIsSignUp] = useState(true)
-  const [activeSlide, setActiveSlide] = useState(0)
+  const [isSignUp, setIsSignUp] = useState(false)
+  const [isForgotPassword, setIsForgotPassword] = useState(false)
   const [fullName, setFullName] = useState('')
-  const [email, setEmail] = useState('')
+  const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [notice, setNotice] = useState('')
+  const [submitting, setSubmitting] = useState(false)
   const navigate = useNavigate()
+  const location = useLocation()
+  const { configured, recoveryMode, resetPassword, signIn, signUp, updatePassword } = useAuth()
+  const returnTo = typeof location.state?.from === 'string' ? location.state.from : '/shop'
 
-  // Auto-advance slide every 6s
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setActiveSlide((current) => (current + 1) % slides.length)
-    }, 6000)
-    return () => clearInterval(timer)
-  }, [])
-
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault()
-    if (!email.trim() || !password) {
-      setNotice('Please enter your email and password.')
+    if (!configured) {
+      setNotice('Add your Supabase project URL and publishable key to .env.local first.')
+      return
+    }
+    if (recoveryMode) {
+      if (password.length < 8) {
+        setNotice('Use at least 8 characters for your new password.')
+        return
+      }
+      if (password !== confirmPassword) {
+        setNotice('The passwords do not match.')
+        return
+      }
+
+      setSubmitting(true)
+      setNotice('')
+      const { error } = await updatePassword(password)
+      setSubmitting(false)
+      if (error) {
+        setNotice(error.message)
+        return
+      }
+      navigate('/account', { replace: true })
+      return
+    }
+    if (isForgotPassword) {
+      if (!identifier.trim() || !identifier.includes('@')) {
+        setNotice('Please enter a valid email address.')
+        return
+      }
+      setSubmitting(true)
+      setNotice('')
+      const { error } = await resetPassword(identifier.trim().toLowerCase())
+      setSubmitting(false)
+      setNotice(error ? error.message : `Password reset instructions have been sent to ${identifier.trim()}.`)
+      return
+    }
+    if (!identifier.trim() || !password) {
+      setNotice('Please enter your email address and password.')
+      return
+    }
+
+    if (!identifier.includes('@')) {
+      setNotice('Please enter a valid email address.')
       return
     }
 
@@ -64,139 +75,87 @@ export default function LoginPage() {
         return
       }
 
-      const parts = fullName.trim().split(' ')
-      const firstName = parts[0] || 'Valued'
-      const lastName = parts.slice(1).join(' ') || 'Customer'
-
-      try {
-        const existing = JSON.parse(window.localStorage.getItem('apaterra-profile') || '{}')
-        const newProfile = {
-          ...existing,
-          firstName,
-          lastName,
-          email: email.trim(),
-        }
-        window.localStorage.setItem('apaterra-profile', JSON.stringify(newProfile))
-        window.dispatchEvent(new CustomEvent('apaterra-profile-updated', { detail: newProfile }))
-      } catch {
-        // Fallback gracefully
-      }
     }
 
-    window.localStorage.setItem(
-      'apaterra-session',
-      JSON.stringify({ email: email.trim(), signedInAt: new Date().toISOString() })
-    )
+    setSubmitting(true)
+    setNotice('')
+    const email = identifier.trim().toLowerCase()
+    const result = isSignUp
+      ? await signUp({ email, password, fullName })
+      : await signIn({ email, password })
+    setSubmitting(false)
 
-    setNotice(isSignUp ? 'Account created! Opening your profile…' : 'Signed in. Welcome back…')
-    setTimeout(() => navigate('/account'), 300)
-  }
+    if (result.error) {
+      setNotice(result.error.message)
+      return
+    }
 
-  function handleSocialLogin(provider) {
-    setNotice(`Connecting securely with ${provider}…`)
-    setTimeout(() => {
-      const demoEmail = `member@${provider.toLowerCase()}.com`
-      window.localStorage.setItem(
-        'apaterra-session',
-        JSON.stringify({ email: demoEmail, signedInAt: new Date().toISOString() })
-      )
-      navigate('/account')
-    }, 450)
+    if (isSignUp && !result.data.session) {
+      setNotice('Account created. Check your email to confirm your address, then sign in.')
+      return
+    }
+
+    setNotice(isSignUp ? 'Account created. Welcome to Apa Terra…' : 'Signed in. Welcome back…')
+    navigate(returnTo, { replace: true })
   }
 
   return (
-    <main className="flow-login-page">
-      <div className="flow-login-frame">
-        {/* Left Column: Visual Card with bottom-left pill badge */}
-        <div className="flow-visual-card">
-          <Link to="/" className="flow-back-home" title="Return to store">
-            <ArrowLeft size={15} />
-            <span>Store</span>
-          </Link>
-          {slides.map((slide, index) => (
-            <img
-              key={slide.title}
-              src={slide.image}
-              alt={slide.subtitle}
-              className={`flow-visual-img ${index === activeSlide ? 'is-active' : ''}`}
-            />
-          ))}
-          <div className="flow-visual-gradient" />
-
-          {/* Bottom-left pill badge from inspo */}
-          <div className="flow-visual-badge">
-            <span className="flow-badge-icon">
-              <Leaf size={16} />
-            </span>
-            <div className="flow-badge-text">
-              <strong>{slides[activeSlide].title}</strong>
-              <span>{slides[activeSlide].subtitle}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Center seam carousel indicator dots */}
-        <div className="flow-carousel-dots" role="tablist" aria-label="Slide navigation">
-          {slides.map((_, index) => (
-            <button
-              key={index}
-              type="button"
-              className={`flow-dot ${index === activeSlide ? 'is-active' : ''}`}
-              onClick={() => setActiveSlide(index)}
-              aria-label={`Go to slide ${index + 1}`}
-            />
-          ))}
-        </div>
-
-        {/* Right Column: Warm Ambient Gradient Form Card */}
-        <div className="flow-form-card">
-          {/* Top-Right Toggle Link */}
-          <div className="flow-top-switch">
-            {isSignUp ? (
-              <p>
-                Already have an account?{' '}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsSignUp(false)
-                    setNotice('')
-                  }}
-                >
-                  Log In
-                </button>
-              </p>
-            ) : (
-              <p>
-                Don&apos;t have an account?{' '}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsSignUp(true)
-                    setNotice('')
-                  }}
-                >
-                  Sign Up
-                </button>
-              </p>
-            )}
-          </div>
-
-          <form className="flow-form-content" onSubmit={handleSubmit}>
-            {/* Header */}
-            <div className="flow-heading">
-              <h1>{isSignUp ? 'Build Your Profile' : 'Welcome Back'}</h1>
-              <p>
-                {isSignUp
-                  ? 'Create your account and get started with a clear mind'
-                  : 'Sign in to access your saved hair profile and orders'}
-              </p>
+    <main className="inspo-login-page">
+      <div className="inspo-login-body">
+        <section className="inspo-login-form-col" aria-label="Account authentication">
+          <div className="inspo-login-card">
+            <div className="inspo-login-brand">
+              <BrandMark />
+              <span>Natural care for textured hair</span>
             </div>
 
-            {/* Inputs */}
-            <div className="flow-input-group">
-              {isSignUp && (
-                <div className="flow-input-wrap">
-                  <UserRound size={17} className="flow-input-icon" />
+            <header className="inspo-login-heading">
+              <p>{recoveryMode ? 'Secure your account' : isForgotPassword ? 'Account recovery' : isSignUp ? 'Join Apaterra' : 'Welcome back'}</p>
+              <h1>{recoveryMode ? 'Choose a new password.' : isForgotPassword ? 'Reset your password.' : isSignUp ? 'Begin your care journey.' : 'Care starts here.'}</h1>
+              <span>
+                {recoveryMode
+                  ? 'Enter and confirm a new password for your Apaterra account.'
+                  : isForgotPassword
+                  ? 'Enter the email connected to your account and we’ll send you a secure reset link.'
+                  : isSignUp
+                  ? 'Create your account and make every wash day feel considered.'
+                  : 'Sign in to continue your personalised hair-care journey.'}
+              </span>
+            </header>
+
+            {!recoveryMode && !isForgotPassword && <div className="inspo-login-tabs" role="tablist">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={!isSignUp}
+                className={`inspo-tab-btn ${!isSignUp ? 'active' : ''}`}
+                onClick={() => {
+                  setIsSignUp(false)
+                  setNotice('')
+                }}
+              >
+                Login
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={isSignUp}
+                className={`inspo-tab-btn ${isSignUp ? 'active' : ''}`}
+                onClick={() => {
+                  setIsSignUp(true)
+                  setNotice('')
+                }}
+              >
+                Sign up
+              </button>
+            </div>}
+
+            <form className="inspo-login-form" onSubmit={handleSubmit} noValidate>
+              {isSignUp && !recoveryMode && (
+                <label className="inspo-pill-field">
+                  <span className="inspo-field-badge" aria-hidden="true">
+                    <UserRound size={15} strokeWidth={2} />
+                  </span>
                   <input
                     type="text"
                     value={fullName}
@@ -204,30 +163,34 @@ export default function LoginPage() {
                       setFullName(e.target.value)
                       setNotice('')
                     }}
-                    placeholder="Full Name"
+                    placeholder="Full name"
                     autoComplete="name"
                     required
                   />
-                </div>
+                </label>
               )}
 
-              <div className="flow-input-wrap">
-                <Mail size={17} className="flow-input-icon" />
+              {!recoveryMode && <label className="inspo-pill-field">
+                <span className="inspo-field-badge" aria-hidden="true">
+                  <ShieldUser size={15} strokeWidth={2} />
+                </span>
                 <input
                   type="email"
-                  value={email}
+                  value={identifier}
                   onChange={(e) => {
-                    setEmail(e.target.value)
+                    setIdentifier(e.target.value)
                     setNotice('')
                   }}
-                  placeholder="Email Address"
-                  autoComplete="email"
+                  placeholder="Email address"
+                  autoComplete="username"
                   required
                 />
-              </div>
+              </label>}
 
-              <div className="flow-input-wrap">
-                <LockKeyhole size={17} className="flow-input-icon" />
+              {(!isForgotPassword || recoveryMode) && <label className="inspo-pill-field">
+                <span className="inspo-field-badge" aria-hidden="true">
+                  <LockKeyhole size={15} strokeWidth={2} />
+                </span>
                 <input
                   type={showPassword ? 'text' : 'password'}
                   value={password}
@@ -235,94 +198,91 @@ export default function LoginPage() {
                     setPassword(e.target.value)
                     setNotice('')
                   }}
-                  placeholder="Password"
-                  autoComplete={isSignUp ? 'new-password' : 'current-password'}
+                  placeholder={recoveryMode ? 'New password' : 'Password'}
+                  autoComplete={isSignUp || recoveryMode ? 'new-password' : 'current-password'}
                   required
                 />
                 <button
                   type="button"
-                  className="flow-eye-toggle"
+                  className="inspo-eye-btn"
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  onClick={() => setShowPassword((v) => !v)}
+                  onClick={() => setShowPassword((prev) => !prev)}
                 >
-                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
+              </label>}
+
+              {recoveryMode && (
+                <label className="inspo-pill-field">
+                  <span className="inspo-field-badge" aria-hidden="true">
+                    <LockKeyhole size={15} strokeWidth={2} />
+                  </span>
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={confirmPassword}
+                    onChange={(e) => {
+                      setConfirmPassword(e.target.value)
+                      setNotice('')
+                    }}
+                    placeholder="Confirm new password"
+                    autoComplete="new-password"
+                    required
+                  />
+                </label>
+              )}
+
+              {notice && (
+                <p className="inspo-login-notice" role="status">
+                  {notice}
+                </p>
+              )}
+
+              <div className="inspo-login-actions">
+                <button type="submit" className="inspo-submit-pill" disabled={submitting}>
+                  <span>{submitting ? 'Please wait…' : recoveryMode ? 'Update password' : isForgotPassword ? 'Send reset link' : isSignUp ? 'Create account' : 'Sign in'}</span>
+                  <ArrowRight size={16} aria-hidden="true" />
+                </button>
+
+                {!isSignUp && !recoveryMode && !isForgotPassword && (
+                  <button
+                    type="button"
+                    className="inspo-forgot-link"
+                    onClick={() => {
+                      setIsForgotPassword(true)
+                      setNotice('')
+                      setPassword('')
+                    }}
+                  >
+                    Forgot your password?
+                  </button>
+                )}
               </div>
-            </div>
+            </form>
 
-            {notice && (
-              <p className="flow-notice" role="status">
-                {notice}
-              </p>
-            )}
-
-            {/* Main Action Button */}
-            <button className="flow-submit-btn" type="submit">
-              <span>{isSignUp ? 'Sign Up' : 'Log In'}</span>
-              <ArrowRight size={17} />
-            </button>
-
-            {/* Divider */}
-            <div className="flow-divider">
-              <span>or continue with</span>
-            </div>
-
-            {/* Social Buttons */}
-            <div className="flow-social-grid">
+            {!recoveryMode && <p className="inspo-account-switch">
+              {isForgotPassword ? 'Remember your password?' : isSignUp ? 'Already have an account?' : 'New to Apaterra?'}{' '}
               <button
                 type="button"
-                className="flow-social-btn"
-                onClick={() => handleSocialLogin('Google')}
+                onClick={() => {
+                  if (isForgotPassword) {
+                    setIsForgotPassword(false)
+                    setIsSignUp(false)
+                  } else {
+                    setIsSignUp((current) => !current)
+                  }
+                  setNotice('')
+                }}
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
-                  <path
-                    fill="#EA4335"
-                    d="M12 5c1.6 0 3 .6 4.1 1.6l3.1-3.1C17.3 1.7 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.3l3.7 2.9C6.5 7.4 9 5 12 5z"
-                  />
-                  <path
-                    fill="#4285F4"
-                    d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5 3.7-8.8z"
-                  />
-                  <path
-                    fill="#FBBC05"
-                    d="M5.6 14.8c-.2-.7-.4-1.5-.4-2.3s.2-1.6.4-2.3L1.9 7.3C.7 9.7 0 12.3 0 15.2c0 2.8.7 5.5 1.9 7.8l3.7-2.9z"
-                  />
-                  <path
-                    fill="#34A853"
-                    d="M12 23.5c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3 0-5.5-2.4-6.4-5.3L1.9 16.4C3.7 20.1 7.5 23.5 12 23.5z"
-                  />
-                </svg>
-                <span>Google</span>
+                {isForgotPassword ? 'Back to login' : isSignUp ? 'Log in' : 'Create an account'}
               </button>
+            </p>}
+          </div>
+        </section>
 
-              <button
-                type="button"
-                className="flow-social-btn"
-                onClick={() => handleSocialLogin('Apple')}
-              >
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                  <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.37c.64-.78 1.08-1.86.96-2.95-1 .04-2.15.65-2.82 1.44-.59.68-1.11 1.77-.97 2.84 1.13.09 2.22-.56 2.83-1.33z" />
-                </svg>
-                <span>Apple</span>
-              </button>
-
-              <button
-                type="button"
-                className="flow-social-btn"
-                onClick={() => handleSocialLogin('Mobile')}
-              >
-                <Smartphone size={15} />
-                <span>Phone</span>
-              </button>
-            </div>
-
-            {/* Legal text */}
-            <p className="flow-legal">
-              By signing up, you agree to our<br />
-              <button type="button" className="flow-legal-link">Terms of Service</button> and{' '}
-              <button type="button" className="flow-legal-link">Privacy Policy</button>
-            </p>
-          </form>
+        <div className="inspo-login-design-space">
+          <figure className="inspo-login-portrait">
+            <img src={loginAfro} alt="Black woman wearing a natural afro hairstyle" />
+          </figure>
         </div>
       </div>
     </main>

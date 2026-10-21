@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
-import { ArrowUpRight, LogOut, Moon, Search, ShoppingCart, Sun, UserRound, X } from 'lucide-react'
+import { ArrowUpRight, Bell, LogOut, Moon, Search, ShoppingCart, Sun, UserRound, X } from 'lucide-react'
 import BrandMark from './BrandMark'
 import { useCart } from '../context/cart-store'
+import { useAuth } from '../context/auth-store'
+import { supabase } from '../lib/supabase'
 
-const links = [['Shop', '/shop'], ['Routines', '/routines'], ['Hair needs', '/hair-needs'], ['Our story', '/story'], ['Admin', '/admin']]
+const links = [['Shop', '/shop'], ['Routines', '/routines'], ['Hair needs', '/hair-needs'], ['Our story', '/story']]
 
 function readProfile() {
   try {
@@ -21,18 +23,27 @@ export default function Header() {
   const [isScrolled, setIsScrolled] = useState(false)
   const [profile, setProfile] = useState(readProfile)
   const [accountMenuOpen, setAccountMenuOpen] = useState(false)
+  const [notificationsOpen, setNotificationsOpen] = useState(false)
+  const [notifications, setNotifications] = useState([])
   const [darkMode, setDarkMode] = useState(() => {
     const savedTheme = window.localStorage.getItem('apaterra-theme')
     return savedTheme ? savedTheme === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches
   })
   const mobileSearchInput = useRef(null)
   const accountMenuRef = useRef(null)
+  const notificationsRef = useRef(null)
   const { itemCount, setIsOpen } = useCart()
+  const { profile: authProfile, role, signOut, user } = useAuth()
   const { pathname } = useLocation()
   const navigate = useNavigate()
   const isHome = pathname === '/'
-  const profilePhoto = profile.photo || ''
-  const profileInitials = [profile.firstName, profile.lastName].filter(Boolean).map((name) => name[0]).join('').slice(0, 2).toUpperCase() || 'AT'
+  const navigationLinks = role === 'admin' ? [...links, ['Admin', '/admin']] : links
+  const profilePhoto = user ? authProfile?.photo_url || '' : profile.photo || ''
+  const profileInitials = [
+    user ? authProfile?.first_name || user.user_metadata?.first_name : profile.firstName,
+    user ? authProfile?.last_name || user.user_metadata?.last_name : profile.lastName,
+  ]
+    .filter(Boolean).map((name) => name[0]).join('').slice(0, 2).toUpperCase() || 'AT'
 
   useEffect(() => {
     const updateHeader = () => setIsScrolled(window.scrollY > 24)
@@ -73,6 +84,46 @@ export default function Header() {
     }
   }, [accountMenuOpen])
 
+  useEffect(() => {
+    if (!notificationsOpen) return undefined
+    const closeOnOutsideInteraction = (event) => {
+      if (!notificationsRef.current?.contains(event.target)) setNotificationsOpen(false)
+    }
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') setNotificationsOpen(false)
+    }
+    document.addEventListener('pointerdown', closeOnOutsideInteraction)
+    document.addEventListener('keydown', closeOnEscape)
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsideInteraction)
+      document.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [notificationsOpen])
+
+  useEffect(() => {
+    if (!supabase || !user?.id) {
+      setNotifications([])
+      return undefined
+    }
+    let active = true
+    supabase
+      .from('notifications')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(5)
+      .then(({ data }) => { if (active) setNotifications(data || []) })
+    const channel = supabase
+      .channel(`header-notifications-${user.id}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` }, ({ new: notification }) => {
+        setNotifications((current) => current.some((item) => item.id === notification.id) ? current : [notification, ...current].slice(0, 5))
+      })
+      .subscribe()
+    return () => {
+      active = false
+      supabase.removeChannel(channel)
+    }
+  }, [user?.id])
+
   function submitSearch(event) {
     event.preventDefault()
     const query = searchTerm.trim()
@@ -99,11 +150,23 @@ export default function Header() {
     navigate('/account')
   }
 
-  function logOut() {
+  async function logOut() {
     setAccountMenuOpen(false)
     setMenuOpen(false)
-    window.localStorage.removeItem('apaterra-session')
+    await signOut()
     navigate('/login')
+  }
+
+  function openNotifications() {
+    setNotificationsOpen((current) => !current)
+    setAccountMenuOpen(false)
+  }
+
+  async function markAllNotificationsRead() {
+    if (!notifications.some((notification) => !notification.read_at) || !supabase) return
+    const readAt = new Date().toISOString()
+    setNotifications((current) => current.map((notification) => ({ ...notification, read_at: notification.read_at || readAt })))
+    await supabase.from('notifications').update({ read_at: readAt }).is('read_at', null)
   }
 
   return (
@@ -133,7 +196,7 @@ export default function Header() {
           </span>
         </Link>
         <nav className="desktop-nav" aria-label="Main navigation">
-          {links.map(([label, href]) => (
+          {navigationLinks.map(([label, href]) => (
             <NavLink key={label} to={href}>
               {label}
             </NavLink>
@@ -163,6 +226,22 @@ export default function Header() {
             <ShoppingCart size={20} />
             <span className="cart-count">{itemCount}</span>
           </button>
+          {user && (
+            <div className="header-notification-menu" ref={notificationsRef}>
+              <button type="button" className={`header-notification-button${notifications.some((notification) => !notification.read_at) ? ' has-unread' : ''}`} aria-label="Open notifications" aria-expanded={notificationsOpen} onClick={openNotifications}>
+                <Bell size={18} />
+              </button>
+              {notificationsOpen && (
+                <div className="header-notification-popover" role="status">
+                  <div className="header-notification-popover-head"><strong>Notifications</strong><span>{notifications.length}</span>{notifications.some((notification) => !notification.read_at) && <button type="button" onClick={markAllNotificationsRead}>Mark all read</button>}</div>
+                  {notifications.length ? notifications.map((notification) => (
+                    <button type="button" key={notification.id} className={`header-notification-item${notification.read_at ? '' : ' unread'}`} onClick={() => { setNotificationsOpen(false); navigate(notification.order_id ? `/account?tab=orders&order=${encodeURIComponent(notification.order_id)}` : '/account?tab=notifications') }}><strong>{notification.title}</strong><p>{notification.message}</p></button>
+                  )) : <p className="header-notification-empty">You’re all caught up.</p>}
+                  <button type="button" className="header-notification-view-all" onClick={() => { setNotificationsOpen(false); navigate('/account?tab=notifications') }}>View all activity</button>
+                </div>
+              )}
+            </div>
+          )}
           <button
             className={`theme-toggle${darkMode ? ' is-dark' : ''}`}
             type="button"
@@ -226,14 +305,20 @@ export default function Header() {
             </button>
             {accountMenuOpen && (
               <div id="account-menu-options" className="account-menu-options" role="menu">
-                {pathname !== '/account' && (
+                {user && pathname !== '/account' && (
                   <button type="button" role="menuitem" onClick={viewProfile}>
                     <UserRound size={16} /> View profile
                   </button>
                 )}
-                <button type="button" role="menuitem" onClick={logOut}>
-                  <LogOut size={16} /> Log out
-                </button>
+                {user ? (
+                  <button type="button" role="menuitem" onClick={logOut}>
+                    <LogOut size={16} /> Log out
+                  </button>
+                ) : (
+                  <button type="button" role="menuitem" onClick={() => navigate('/login')}>
+                    <UserRound size={16} /> Log in
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -256,7 +341,7 @@ export default function Header() {
         <div id="mobile-navigation" className={`mobile-menu${menuOpen ? ' is-open' : ''}`} aria-hidden={!menuOpen}>
           <p className="mobile-menu-label">Explore Apa Terra</p>
           <nav aria-label="Mobile navigation">
-            {links.map(([label, href]) => (
+            {navigationLinks.map(([label, href]) => (
               <NavLink key={label} to={href} tabIndex={menuOpen ? 0 : -1} onClick={() => setMenuOpen(false)}>
                 <span>{label}</span>
                 <ArrowUpRight size={17} />

@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
-import heroImage from '../assets/apaterra-hero-v4.png'
-import routineImage from '../assets/apaterra-routine-v1.png'
+import heroImage from '../assets/apaterra-hero-v4.jpg'
+import routineImage from '../assets/apaterra-routine-v1.jpg'
 import ProductCard from '../components/ProductCard'
 import ScrollReveal from '../components/ScrollReveal'
 import { hairNeeds, products } from '../data/catalog'

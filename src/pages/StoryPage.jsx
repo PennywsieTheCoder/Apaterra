@@ -3,5 +3,50 @@ import ScrollReveal from '../components/ScrollReveal'
 import { hairNeeds, products } from '../data/catalog'
 
 export default function StoryPage() {
-  return <main className="story-page page-shell"><ScrollReveal className="story-hero" rootMargin="0px 0px 8% 0px" threshold={0.05}><div><p className="eyebrow">Our story</p><h1>Hair care that begins<br />with understanding.</h1><p className="story-hero-copy">Born from the belief that textured hair should never be treated as an afterthought.</p></div><div className="story-collage"><img src={hairNeeds[4].image} alt="Woman wearing her natural afro" /><img src={products[2].image} alt="Botanical oil placeholder" /></div></ScrollReveal><ScrollReveal className="story-copy" rootMargin="0px 0px 8% 0px" threshold={0.05}><p className="story-lead">Apaterra is being created around a simple belief: African-textured hair deserves care that understands its beauty, versatility and everyday needs.</p><div><article><span>01</span><h2>Needs before trends</h2><p>We organise care around moisture, strength, scalp health and protective styling so customers can make confident choices.</p></article><article><span>02</span><h2>Care without complication</h2><p>Products should work together clearly. Every formula earns a place in a routine and comes with useful guidance.</p></article><article><span>03</span><h2>Rooted, considered care</h2><p>Our visual and product language draws from earth, botanicals and the richness of textured-hair traditions without relying on clichés.</p></article></div></ScrollReveal><ScrollReveal className="story-quote" rootMargin="0px 0px 8% 0px" threshold={0.05}><p>“Your texture is not a problem to solve. It is a crown to understand.”</p><span>— The Apaterra philosophy</span></ScrollReveal><ScrollReveal className="story-cta" rootMargin="0px 0px 8% 0px" threshold={0.05}><p className="eyebrow">Begin your care</p><h2>Find care shaped around what your hair needs today.</h2><Link className="button button-primary" to="/shop">Explore Apaterra</Link></ScrollReveal></main>
+  return (
+    <main className="story-page page-shell">
+      <ScrollReveal className="story-hero" rootMargin="0px 0px 8% 0px" threshold={0.05}>
+        <div>
+          <p className="eyebrow">Why Apa Terra</p>
+          <h1>Textured hair comes first.</h1>
+          <p className="story-hero-copy">
+            Apa Terra brings products and guidance together for curls, coils, locs and protective styles.
+          </p>
+        </div>
+        <div className="story-collage">
+          <img src={hairNeeds[4].image} alt="Woman wearing her natural afro" />
+          <img src={products[2].image} alt="Rooted Drops hair and scalp oil" />
+        </div>
+      </ScrollReveal>
+
+      <ScrollReveal className="story-copy" rootMargin="0px 0px 8% 0px" threshold={0.05}>
+        <p className="story-lead">
+          We organise the range around familiar hair needs, so it is easier to choose what belongs in your wash day and daily care.
+        </p>
+        <div>
+          <article>
+            <span>01</span>
+            <h2>Start with the need</h2>
+            <p>Shop by moisture, breakage, scalp care, protective styles or definition.</p>
+          </article>
+          <article>
+            <span>02</span>
+            <h2>Know the next step</h2>
+            <p>Clear product directions show what to use, when to use it and what follows.</p>
+          </article>
+          <article>
+            <span>03</span>
+            <h2>Made for real routines</h2>
+            <p>Build a simple set of products that fits how you wash, style and maintain your hair.</p>
+          </article>
+        </div>
+      </ScrollReveal>
+
+      <ScrollReveal className="story-cta" rootMargin="0px 0px 8% 0px" threshold={0.05}>
+        <p className="eyebrow">Find your products</p>
+        <h2>Start with your hair need.</h2>
+        <Link className="button button-primary" to="/hair-needs">Shop by hair need</Link>
+      </ScrollReveal>
+    </main>
+  )
 }

@@ -6,16 +6,16 @@ import ScrollReveal from '../components/ScrollReveal'
 import { hairNeeds, products } from '../data/catalog'
 
 const benefits = [
-  ['Rooted in care', 'Thoughtful formulas created for the needs of African-textured hair.'],
-  ['Routine made simple', 'Clear guidance helps you build a routine without the guesswork.'],
-  ['Made for consistency', 'Everyday essentials that support healthy hair over time.'],
+  ['Textured hair first', 'Products selected for curls, coils, locs and protective styles.'],
+  ['Clear directions', 'Know what to use, when to use it and what comes next.'],
+  ['Everyday consistency', 'Essentials designed for regular wash days and daily care.'],
 ]
 
 export default function HomePage() {
   return (
     <main className="home-page">
       <section className="hero-section">
-        <div className="hero-copy"><p className="eyebrow">Natural care for textured hair</p><h1><span>Essentials for</span><span>your crown.</span></h1><p className="hero-description">Purposeful formulas for curls, coils and locs—created to make moisture, strength and scalp care feel beautifully simple.</p><div className="hero-actions"><Link className="button button-primary" to="/shop">Shop now <span>→</span></Link><Link className="hero-text-link" to="/routines">Explore routines</Link></div></div>
+        <div className="hero-copy"><p className="eyebrow">Hair care for curls, coils and locs</p><h1><span>Essentials for</span><span>your crown.</span></h1><p className="hero-description">Shop cleansers, treatments, leave-ins and stylers by product or by what your hair needs today.</p><div className="hero-actions"><Link className="button button-primary" to="/shop">Shop now <span>→</span></Link><Link className="hero-text-link" to="/hair-needs">Shop by hair need</Link></div></div>
         <div className="hero-visual"><img src={heroImage} alt="Two African women wearing a natural afro and braids beside Apaterra hair-care products" /></div>
       </section>
 
@@ -40,12 +40,12 @@ export default function HomePage() {
       <ScrollReveal className="routine-feature">
         <div className="routine-visual routine-photo">
           <img src={routineImage} alt="Three botanical hair-care products arranged on warm stone plinths" loading="lazy" />
-          <div className="routine-image-caption"><span>Wash day, considered</span><strong>Three essential steps</strong></div>
+          <div className="routine-image-caption"><span>A three-step wash day</span><strong>Cleanse, condition, hydrate</strong></div>
         </div>
         <div className="routine-copy">
-          <p className="eyebrow">The moisture routine</p>
-          <h2>A complete wash day,<br />thoughtfully layered.</h2>
-          <p>Cleanse gently, replenish deeply and seal in moisture. Three purposeful steps designed to work better together.</p>
+          <p className="eyebrow">Moisture routine</p>
+          <h2>Cleanse. Condition.<br />Hydrate.</h2>
+          <p>Three products for a straightforward moisture-focused wash day.</p>
           <ol>
             <li><span>01</span><strong>Cleanse without stripping</strong></li>
             <li><span>02</span><strong>Deeply condition and detangle</strong></li>
@@ -56,12 +56,12 @@ export default function HomePage() {
       </ScrollReveal>
 
       <ScrollReveal className="featured-section">
-        <div className="featured-heading"><div><p className="eyebrow">Our essentials</p><h2>Care worth returning to.</h2></div><Link className="text-link" to="/shop">Shop all products <span>→</span></Link></div>
+        <div className="featured-heading"><div><p className="eyebrow">Shop the range</p><h2>Wash-day essentials.</h2></div><Link className="text-link" to="/shop">Shop all products <span>→</span></Link></div>
         <div className="product-grid">{products.slice(0, 4).map((product) => <ProductCard product={product} key={product.id} />)}</div>
       </ScrollReveal>
 
       <ScrollReveal className="brand-principles">
-        <div className="section-heading"><p className="eyebrow">Our care philosophy</p><h2>Healthy hair starts with<br />care that understands it.</h2></div>
+        <div className="section-heading"><p className="eyebrow">How Apa Terra helps</p><h2>Choose products with<br />more confidence.</h2></div>
         <div className="principle-grid">{benefits.map(([title, copy]) => <article key={title}><h3>{title}</h3><p>{copy}</p></article>)}</div>
       </ScrollReveal>
     </main>

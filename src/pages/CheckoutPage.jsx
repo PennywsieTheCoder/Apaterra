@@ -6,12 +6,22 @@ import { useCart } from '../context/cart-store'
 import { useAuth } from '../context/auth-store'
 import { formatMoney } from '../data/catalog'
 import { supabase } from '../lib/supabase'
+import RetryState from '../components/RetryState'
 
 const regions = [
   'Ahafo', 'Ashanti', 'Bono', 'Bono East', 'Central', 'Eastern', 'Greater Accra',
   'North East', 'Northern', 'Oti', 'Savannah', 'Upper East', 'Upper West',
   'Volta', 'Western', 'Western North',
 ]
+
+function createCheckoutRequestId() {
+  if (window.crypto?.randomUUID) return window.crypto.randomUUID()
+  const bytes = window.crypto.getRandomValues(new Uint8Array(16))
+  bytes[6] = (bytes[6] & 0x0f) | 0x40
+  bytes[8] = (bytes[8] & 0x3f) | 0x80
+  const hex = [...bytes].map((value) => value.toString(16).padStart(2, '0'))
+  return `${hex.slice(0, 4).join('')}-${hex.slice(4, 6).join('')}-${hex.slice(6, 8).join('')}-${hex.slice(8, 10).join('')}-${hex.slice(10).join('')}`
+}
 
 function CheckoutRegionSelect({ value, onChange }) {
   const [open, setOpen] = useState(false)
@@ -58,6 +68,9 @@ export default function CheckoutPage() {
   const [selectedAddressId, setSelectedAddressId] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
+  const [deliveryDataError, setDeliveryDataError] = useState('')
+  const [addressLoadError, setAddressLoadError] = useState('')
+  const [checkoutDataReloadKey, setCheckoutDataReloadKey] = useState(0)
   const [formValues, setFormValues] = useState(() => {
     try {
       const saved = JSON.parse(window.localStorage.getItem('apaterra-profile') || '{}')
@@ -92,11 +105,16 @@ export default function CheckoutPage() {
       .select('id, region, city, fee, delivery_window')
       .eq('active', true)
       .eq('cash_on_delivery', true)
-      .then(({ data }) => {
-        if (active) setDeliveryZones(data || [])
+      .then(({ data, error }) => {
+        if (!active) return
+        if (error) setDeliveryDataError(error.message)
+        else {
+          setDeliveryZones(data || [])
+          setDeliveryDataError('')
+        }
       })
     return () => { active = false }
-  }, [])
+  }, [checkoutDataReloadKey])
 
   useEffect(() => {
     if (!supabase || !user?.id) return undefined
@@ -106,15 +124,20 @@ export default function CheckoutPage() {
       .select('*')
       .order('is_default', { ascending: false })
       .order('created_at', { ascending: true })
-      .then(({ data }) => {
+      .then(({ data, error }) => {
         if (!active) return
+        if (error) {
+          setAddressLoadError(error.message)
+          return
+        }
+        setAddressLoadError('')
         const addresses = data || []
         setSavedAddresses(addresses)
         const defaultAddress = addresses.find((address) => address.is_default) || addresses[0]
         if (defaultAddress) applySavedAddress(defaultAddress)
       })
     return () => { active = false }
-  }, [user?.id])
+  }, [checkoutDataReloadKey, user?.id])
 
   const deliveryZone = deliveryZones
     .filter((zone) => zone.region.toLowerCase() === formValues.region.trim().toLowerCase())
@@ -152,11 +175,34 @@ export default function CheckoutPage() {
     setSubmitError('')
   }
 
+  function retryCheckoutData() {
+    setDeliveryDataError('')
+    setAddressLoadError('')
+    setCheckoutDataReloadKey((current) => current + 1)
+  }
+
   async function submitOrder(event) {
     event.preventDefault()
     if (missingFields.length || !supabase || isSubmitting) return
     setIsSubmitting(true)
     setSubmitError('')
+    const cartFingerprint = items
+      .map(({ id, quantity }) => `${id}:${quantity}`)
+      .sort()
+      .join('|')
+    let checkoutRequest
+    try {
+      checkoutRequest = JSON.parse(window.sessionStorage.getItem('apaterra-checkout-request') || 'null')
+    } catch {
+      checkoutRequest = null
+    }
+    if (!checkoutRequest?.id || checkoutRequest.fingerprint !== cartFingerprint) {
+      checkoutRequest = {
+        id: createCheckoutRequestId(),
+        fingerprint: cartFingerprint,
+      }
+      window.sessionStorage.setItem('apaterra-checkout-request', JSON.stringify(checkoutRequest))
+    }
     const { data, error } = await supabase.rpc('place_order', {
       p_customer: {
         first_name: formValues.firstName,
@@ -173,6 +219,7 @@ export default function CheckoutPage() {
       // The database resolves current product details and prices from these IDs.
       // Client-provided prices must never be trusted when stock is reserved.
       p_items: items.map(({ id, quantity }) => ({ id, quantity })),
+      p_request_id: checkoutRequest.id,
     })
 
     if (error) {
@@ -181,6 +228,7 @@ export default function CheckoutPage() {
       return
     }
     setOrderReference(data.reference)
+    window.sessionStorage.removeItem('apaterra-checkout-request')
     clearCart()
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
@@ -217,6 +265,8 @@ export default function CheckoutPage() {
       <p>Tell us where your care is going. We’ll confirm delivery costs with you before dispatch, and payment is collected on delivery.</p>
     </div>
 
+    {deliveryDataError && <RetryState title="Delivery options could not be loaded." message="Retry before placing your order so the correct delivery fee can be confirmed." onRetry={retryCheckoutData} />}
+    {addressLoadError && <RetryState compact title="Saved addresses could not be loaded." message="You can enter an address manually or try again." onRetry={retryCheckoutData} />}
     <div className="checkout-layout">
       <form className="checkout-form" onSubmit={submitOrder}>
         <section className="checkout-form-section">
@@ -266,7 +316,7 @@ export default function CheckoutPage() {
           {missingFields.length > 0 && <div>{missingFields.map((field) => <span key={field.key}>{field.label}</span>)}</div>}
         </div>
         {submitError && <p className="checkout-submit-error" role="alert">{submitError}</p>}
-        <button className="place-order-button" type="submit" disabled={missingFields.length > 0 || isSubmitting}>{isSubmitting ? 'Placing order…' : 'Place order'} <span>{formatMoney(subtotal)}</span></button>
+        <button className="place-order-button" type="submit" disabled={missingFields.length > 0 || Boolean(deliveryDataError) || isSubmitting}>{isSubmitting ? 'Placing order…' : 'Place order'} <span>{formatMoney(subtotal)}</span></button>
         <p className="checkout-submit-note"><ShieldCheck size={15} /> You’ll pay only when your order is delivered.</p>
       </form>
 

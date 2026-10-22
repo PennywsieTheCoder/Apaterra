@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Bell,
   Check,
@@ -18,11 +18,16 @@ import {
   UserRound,
 } from 'lucide-react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { formatMoney, hairNeeds } from '../data/catalog'
+import { formatMoney } from '../data/catalog'
 import { useAuth } from '../context/auth-store'
 import { mapSupabaseOrder } from '../lib/orders'
 import { supabase } from '../lib/supabase'
 import OrderDetailsDialog from '../components/OrderDetailsDialog'
+import ProductCard from '../components/ProductCard'
+import { useCatalog } from '../context/catalog-store'
+import { useFavorites } from '../context/favorites-store'
+import ConfirmDialog from '../components/ConfirmDialog'
+import RetryState from '../components/RetryState'
 
 const regions = [
   'Ahafo',
@@ -92,7 +97,7 @@ function profileFromSupabase(profile, user) {
 
 const sidebarItems = [
   { id: 'user-info', label: 'User info', icon: UserRound },
-  { id: 'favorites', label: 'Hair profile', icon: Heart },
+  { id: 'favorites', label: 'Favorites', icon: Heart },
   { id: 'orders', label: 'Orders', icon: Package },
   { id: 'delivery', label: 'Delivery addresses', icon: MapPin },
   { id: 'setting', label: 'Settings', icon: Settings },
@@ -150,6 +155,8 @@ export default function AccountPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { profile: authProfile, resetPassword, signOut, updateProfile, user } = useAuth()
+  const { products: catalogProducts } = useCatalog()
+  const { error: favoritesError, favoriteIds, loading: favoritesLoading, refreshFavorites } = useFavorites()
   const initialProfile = profileFromSupabase(authProfile, user)
   const initialTab = searchParams.get('tab')
   const deepLinkedOrderId = searchParams.get('order')
@@ -169,13 +176,19 @@ export default function AccountPage() {
   const [addressesLoading, setAddressesLoading] = useState(true)
   const [addressError, setAddressError] = useState('')
   const [addressSaved, setAddressSaved] = useState(false)
+  const [isSavingAddress, setIsSavingAddress] = useState(false)
   const [addressForm, setAddressForm] = useState(emptyDeliveryAddress)
   const [editingAddressId, setEditingAddressId] = useState(null)
   const [saved, setSaved] = useState(false)
   const [saveError, setSaveError] = useState('')
+  const [isSavingProfile, setIsSavingProfile] = useState(false)
   const [photoError, setPhotoError] = useState('')
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false)
   const [securityMessage, setSecurityMessage] = useState('')
+  const [confirmAction, setConfirmAction] = useState(null)
+  const [confirmBusy, setConfirmBusy] = useState(false)
+  const [activityReloadKey, setActivityReloadKey] = useState(0)
+  const [addressReloadKey, setAddressReloadKey] = useState(0)
   const photoInputRef = useRef(null)
 
   const fullName =
@@ -190,6 +203,30 @@ export default function AccountPage() {
       .slice(0, 2)
       .toUpperCase() || 'AT'
   const hasUnsavedChanges = JSON.stringify(profile) !== JSON.stringify(savedProfile)
+  const missingProfileFields = [profile.firstName, profile.lastName]
+    .filter((value) => !value.trim()).length
+  const missingAddressFields = [
+    addressForm.recipientName,
+    addressForm.region,
+    addressForm.city,
+    addressForm.address,
+  ].filter((value) => !value.trim()).length
+  const editingAddress = deliveryAddresses.find((address) => address.id === editingAddressId)
+  const addressHasChanges = !editingAddress || JSON.stringify(addressForm) !== JSON.stringify({
+    label: editingAddress.label || '',
+    recipientName: editingAddress.recipient_name || '',
+    phone: editingAddress.phone || '',
+    region: editingAddress.region || '',
+    city: editingAddress.city || '',
+    address: editingAddress.address || '',
+    landmark: editingAddress.landmark || '',
+    postalCode: editingAddress.postal_code || '',
+    isDefault: Boolean(editingAddress.is_default),
+  })
+  const favoriteProducts = useMemo(
+    () => favoriteIds.map((id) => catalogProducts.find((product) => product.id === id)).filter(Boolean),
+    [catalogProducts, favoriteIds]
+  )
 
   useEffect(() => {
     if (!deepLinkedOrderId || activeTab !== 'orders' || ordersLoading) return undefined
@@ -220,7 +257,7 @@ export default function AccountPage() {
     return () => {
       active = false
     }
-  }, [user?.id])
+  }, [activityReloadKey, user?.id])
 
   useEffect(() => {
     if (!supabase || !user?.id) {
@@ -241,7 +278,7 @@ export default function AccountPage() {
         setAddressesLoading(false)
       })
     return () => { active = false }
-  }, [user?.id])
+  }, [addressReloadKey, user?.id])
 
   useEffect(() => {
     if (!supabase || !user?.id) return undefined
@@ -269,6 +306,20 @@ export default function AccountPage() {
     await supabase.from('notifications').update({ read_at: readAt }).is('read_at', null)
   }
 
+  function retryAccountActivity() {
+    setOrdersError('')
+    setNotificationsError('')
+    setOrdersLoading(true)
+    setNotificationsLoading(true)
+    setActivityReloadKey((current) => current + 1)
+  }
+
+  function retryAddresses() {
+    setAddressError('')
+    setAddressesLoading(true)
+    setAddressReloadKey((current) => current + 1)
+  }
+
   useEffect(() => {
     if (!hasUnsavedChanges) return undefined
     const warnBeforeLeaving = (event) => {
@@ -279,14 +330,28 @@ export default function AccountPage() {
     return () => window.removeEventListener('beforeunload', warnBeforeLeaving)
   }, [hasUnsavedChanges])
 
-  function changeTab(nextTab, shouldFocus = false) {
-    if (nextTab === activeTab) return
-    if (hasUnsavedChanges && !window.confirm('Discard your unsaved changes and switch sections?')) return
-    if (hasUnsavedChanges) setProfile(savedProfile)
+  function applyTabChange(nextTab, shouldFocus = false) {
     setActiveTab(nextTab)
     if (nextTab === 'notifications') markNotificationsRead()
     setSaved(false)
     if (shouldFocus) requestAnimationFrame(() => document.getElementById(`profile-tab-${nextTab}`)?.focus())
+  }
+
+  function changeTab(nextTab, shouldFocus = false) {
+    if (nextTab === activeTab) return
+    if (hasUnsavedChanges) {
+      setConfirmAction({
+        title: 'Discard unsaved changes?',
+        description: 'The changes in this section have not been saved and will be lost.',
+        confirmLabel: 'Discard changes',
+        onConfirm: () => {
+          setProfile(savedProfile)
+          applyTabChange(nextTab, shouldFocus)
+        },
+      })
+      return
+    }
+    applyTabChange(nextTab, shouldFocus)
   }
 
   function handleTabKeyDown(event, currentId) {
@@ -374,9 +439,10 @@ export default function AccountPage() {
       return
     }
     if (!addressForm.recipientName.trim() || !addressForm.region || !addressForm.city.trim() || !addressForm.address.trim()) {
-      setAddressError('Add a recipient, region, town or city, and street address.')
       return
     }
+
+    setIsSavingAddress(true)
 
     const payload = {
       label: addressForm.label.trim() || 'Delivery address',
@@ -397,6 +463,7 @@ export default function AccountPage() {
         .eq('user_id', user.id)
       if (error) {
         setAddressError(error.message)
+        setIsSavingAddress(false)
         return
       }
     }
@@ -407,6 +474,7 @@ export default function AccountPage() {
     const { data, error } = await request
     if (error) {
       setAddressError(error.message)
+      setIsSavingAddress(false)
       return
     }
 
@@ -420,11 +488,13 @@ export default function AccountPage() {
       const profileError = await mirrorDefaultAddress(addressForm)
       if (profileError) {
         setAddressError(`Address saved, but checkout details could not be updated: ${profileError.message}`)
+        setIsSavingAddress(false)
         return
       }
     }
     setAddressSaved(true)
     setEditingAddressId(data.id)
+    setIsSavingAddress(false)
   }
 
   async function setDefaultAddress(address) {
@@ -454,8 +524,8 @@ export default function AccountPage() {
     if (profileError) setAddressError(`Default address updated, but checkout details could not be updated: ${profileError.message}`)
   }
 
-  async function deleteAddress(address) {
-    if (!supabase || !user?.id || !window.confirm(`Remove ${address.label || 'this address'}?`)) return
+  async function deleteAddressConfirmed(address) {
+    if (!supabase || !user?.id) return
     setAddressError('')
     const remaining = deliveryAddresses.filter((item) => item.id !== address.id)
     const { error } = await supabase.from('delivery_addresses').delete().eq('id', address.id)
@@ -487,19 +557,20 @@ export default function AccountPage() {
     if (editingAddressId === address.id) startNewAddress()
   }
 
-  function toggleHairNeed(need) {
-    setProfile((current) => ({
-      ...current,
-      hairNeeds: current.hairNeeds.includes(need)
-        ? current.hairNeeds.filter((item) => item !== need)
-        : [...current.hairNeeds, need],
-    }))
-    setSaved(false)
+  function deleteAddress(address) {
+    setConfirmAction({
+      title: `Remove ${address.label || 'this address'}?`,
+      description: 'This delivery address will be removed from your account. Existing orders will not be affected.',
+      confirmLabel: 'Remove address',
+      onConfirm: () => deleteAddressConfirmed(address),
+    })
   }
 
   async function saveProfile(event) {
     event.preventDefault()
+    if ((activeTab === 'user-info' && missingProfileFields) || !hasUnsavedChanges || isSavingProfile) return
     setSaveError('')
+    setIsSavingProfile(true)
     const { data, error } = await updateProfile({
       first_name: profile.firstName.trim(),
       last_name: profile.lastName.trim(),
@@ -517,6 +588,7 @@ export default function AccountPage() {
     if (error) {
       setSaveError(error.message)
       setSaved(false)
+      setIsSavingProfile(false)
       return
     }
 
@@ -524,6 +596,7 @@ export default function AccountPage() {
     setProfile(nextProfile)
     setSavedProfile(nextProfile)
     setSaved(true)
+    setIsSavingProfile(false)
     window.dispatchEvent(new CustomEvent('apaterra-profile-updated', { detail: nextProfile }))
   }
 
@@ -580,11 +653,31 @@ export default function AccountPage() {
     setIsUploadingPhoto(false)
   }
 
-  async function handleSignOut() {
-    if (hasUnsavedChanges && !window.confirm('Sign out and discard your unsaved changes?')) return
+  async function performSignOut() {
     await signOut()
     window.dispatchEvent(new CustomEvent('apaterra-profile-updated'))
     navigate('/login')
+  }
+
+  async function handleSignOut() {
+    if (!hasUnsavedChanges) {
+      await performSignOut()
+      return
+    }
+    setConfirmAction({
+      title: 'Sign out without saving?',
+      description: 'Your unsaved profile changes will be discarded when you sign out.',
+      confirmLabel: 'Discard and sign out',
+      onConfirm: performSignOut,
+    })
+  }
+
+  async function runConfirmedAction() {
+    if (!confirmAction?.onConfirm || confirmBusy) return
+    setConfirmBusy(true)
+    await confirmAction.onConfirm()
+    setConfirmBusy(false)
+    setConfirmAction(null)
   }
 
   async function explainSecurity(action) {
@@ -684,24 +777,26 @@ export default function AccountPage() {
               <form id="profile-panel-user-info" className="user-profile-form" role="tabpanel" aria-labelledby="profile-tab-user-info" onSubmit={saveProfile}>
                 <div className="user-profile-fields-grid">
                   <label className="user-profile-field">
-                    <span>First name</span>
+                    <span>First name <em>Required</em></span>
                     <input
                       name="firstName"
                       autoComplete="given-name"
                       placeholder="e.g. Ama"
                       value={profile.firstName}
                       onChange={updateField}
+                      required
                     />
                   </label>
 
                   <label className="user-profile-field">
-                    <span>Last name</span>
+                    <span>Last name <em>Required</em></span>
                     <input
                       name="lastName"
                       autoComplete="family-name"
                       placeholder="e.g. Mensah"
                       value={profile.lastName}
                       onChange={updateField}
+                      required
                     />
                   </label>
 
@@ -734,8 +829,8 @@ export default function AccountPage() {
                 </div>
 
                 <div className="user-profile-submit-row">
-                  <button type="submit" className="user-profile-save-btn">
-                    Save Changes
+                  <button type="submit" className="user-profile-save-btn" disabled={Boolean(missingProfileFields) || !hasUnsavedChanges || isSavingProfile}>
+                    {isSavingProfile ? 'Saving…' : 'Save Changes'}
                   </button>
                   {saved && (
                     <span className="user-profile-saved-badge">
@@ -743,53 +838,37 @@ export default function AccountPage() {
                     </span>
                   )}
                   {hasUnsavedChanges && <span className="user-profile-unsaved-badge">Unsaved changes</span>}
-                  {saveError && <span className="user-profile-unsaved-badge">{saveError}</span>}
+                  {saveError && <span className="user-profile-error" role="alert">{saveError}</span>}
                 </div>
               </form>
             )}
 
-            {/* TAB 2: FAVORITES / HAIR GOALS */}
+            {/* TAB 2: FAVORITES */}
             {activeTab === 'favorites' && (
-              <form id="profile-panel-favorites" className="user-profile-form" role="tabpanel" aria-labelledby="profile-tab-favorites" onSubmit={saveProfile}>
+              <section id="profile-panel-favorites" className="user-profile-pane" role="tabpanel" aria-labelledby="profile-tab-favorites">
                 <div className="user-profile-subhead">
-                  <h3>Hair Care Focus &amp; Favorites</h3>
-                  <p>Select the hair needs you want prioritized across the shop.</p>
+                  <h3>Your Favorites</h3>
+                  <p>Products you have saved for your next care day.</p>
                 </div>
 
-                <div className="user-profile-needs-grid">
-                  {hairNeeds.map((need) => {
-                    const selected = profile.hairNeeds.includes(need.name)
-                    return (
-                      <button
-                        key={need.name}
-                        type="button"
-                        className={`user-profile-need-tile ${selected ? 'selected' : ''}`}
-                        aria-pressed={selected}
-                        onClick={() => toggleHairNeed(need.name)}
-                      >
-                        <img src={need.image} alt={need.name} />
-                        <div>
-                          <strong>{need.name}</strong>
-                          <small>{need.description}</small>
-                        </div>
-                        <span className="need-check">{selected && <Check size={13} />}</span>
-                      </button>
-                    )
-                  })}
-                </div>
-
-                <div className="user-profile-submit-row">
-                  <button type="submit" className="user-profile-save-btn">
-                    Save Changes
-                  </button>
-                  {saved && (
-                    <span className="user-profile-saved-badge">
-                      <Check size={14} /> Saved successfully
-                    </span>
-                  )}
-                  {hasUnsavedChanges && <span className="user-profile-unsaved-badge">Unsaved changes</span>}
-                </div>
-              </form>
+                {favoritesError && <RetryState compact title="Favorites could not be loaded." onRetry={refreshFavorites} />}
+                {favoritesLoading ? (
+                  <div className="user-favorites-loading" aria-label="Loading favorites">
+                    <span /><span /><span />
+                  </div>
+                ) : favoriteProducts.length ? (
+                  <div className="product-grid user-favorites-grid">
+                    {favoriteProducts.map((product) => <ProductCard key={product.id} product={product} />)}
+                  </div>
+                ) : (
+                  <div className="user-favorites-empty">
+                    <Heart size={24} aria-hidden="true" />
+                    <h4>No favorites yet</h4>
+                    <p>Tap the heart on any product to keep it here.</p>
+                    <Link to="/shop">Browse products</Link>
+                  </div>
+                )}
+              </section>
             )}
 
             {/* TAB 3: ORDERS */}
@@ -806,7 +885,7 @@ export default function AccountPage() {
                   </p>
                 </div>
 
-                {ordersError && <p className="user-profile-error" role="alert">{ordersError}</p>}
+                {ordersError && <RetryState compact title="Orders could not be loaded." message={ordersError} onRetry={retryAccountActivity} />}
 
                 {!ordersLoading && orders.length > 0 ? (
                   <div className="user-profile-orders">
@@ -906,17 +985,17 @@ export default function AccountPage() {
                   <div className="user-profile-subhead"><h3>{editingAddressId ? 'Edit address' : 'Add a delivery address'}</h3><p>Use a clear label such as Home, Work, or Mum’s place.</p></div>
                   <div className="user-profile-fields-grid">
                     <label className="user-profile-field"><span>Address label</span><input name="label" placeholder="e.g. Home" value={addressForm.label} onChange={updateAddressField} /></label>
-                    <label className="user-profile-field"><span>Recipient name</span><input name="recipientName" autoComplete="name" value={addressForm.recipientName} onChange={updateAddressField} required /></label>
+                    <label className="user-profile-field"><span>Recipient name <em>Required</em></span><input name="recipientName" autoComplete="name" value={addressForm.recipientName} onChange={updateAddressField} required /></label>
                     <label className="user-profile-field"><span>Phone number</span><input name="phone" type="tel" autoComplete="tel" value={addressForm.phone} onChange={updateAddressField} /></label>
-                    <label className="user-profile-field"><span>Region</span><RegionSelect value={addressForm.region} onChange={(region) => { setAddressForm((current) => ({ ...current, region })); setAddressSaved(false) }} /></label>
-                    <label className="user-profile-field"><span>Town or city</span><input name="city" autoComplete="address-level2" value={addressForm.city} onChange={updateAddressField} required /></label>
+                    <label className="user-profile-field"><span>Region <em>Required</em></span><RegionSelect value={addressForm.region} onChange={(region) => { setAddressForm((current) => ({ ...current, region })); setAddressSaved(false) }} /></label>
+                    <label className="user-profile-field"><span>Town or city <em>Required</em></span><input name="city" autoComplete="address-level2" value={addressForm.city} onChange={updateAddressField} required /></label>
                     <label className="user-profile-field"><span>Postal code / digital address</span><input name="postalCode" autoComplete="postal-code" placeholder="GA-183-8164" value={addressForm.postalCode} onChange={updateAddressField} /></label>
-                    <label className="user-profile-field user-profile-field-wide"><span>Street address</span><input name="address" autoComplete="street-address" value={addressForm.address} onChange={updateAddressField} required /></label>
+                    <label className="user-profile-field user-profile-field-wide"><span>Street address <em>Required</em></span><input name="address" autoComplete="street-address" value={addressForm.address} onChange={updateAddressField} required /></label>
                     <label className="user-profile-field user-profile-field-wide"><span>Landmark <em>Optional</em></span><input name="landmark" placeholder="A nearby landmark for the rider" value={addressForm.landmark} onChange={updateAddressField} /></label>
                   </div>
                   <label className="user-profile-default-toggle"><input type="checkbox" name="isDefault" checked={addressForm.isDefault} onChange={updateAddressField} /><span>Use this as my default delivery address</span></label>
-                  {addressError && <p className="user-profile-unsaved-badge" role="alert">{addressError}</p>}
-                  <div className="user-profile-submit-row"><button type="submit" className="user-profile-save-btn">{editingAddressId ? 'Save address' : 'Add address'}</button>{addressSaved && <span className="user-profile-saved-badge"><Check size={14} /> Address saved</span>}</div>
+                  {addressError && <RetryState compact title="Delivery addresses could not be updated." message={addressError} onRetry={retryAddresses} />}
+                  <div className="user-profile-submit-row"><button type="submit" className="user-profile-save-btn" disabled={Boolean(missingAddressFields) || !addressHasChanges || isSavingAddress}>{isSavingAddress ? 'Saving…' : editingAddressId ? 'Save address' : 'Add address'}</button>{addressSaved && <span className="user-profile-saved-badge"><Check size={14} /> Address saved</span>}</div>
                 </form>
               </section>
             )}
@@ -1006,7 +1085,7 @@ export default function AccountPage() {
                     <span>{notifications.length}</span>
                   </div>
                   {notificationsLoading && <p>Loading your updates…</p>}
-                  {notificationsError && <p className="user-profile-error" role="alert">{notificationsError}</p>}
+                  {notificationsError && <RetryState compact title="Notifications could not be loaded." message={notificationsError} onRetry={retryAccountActivity} />}
                   {!notificationsLoading && !notifications.length && (
                     <div className="user-notification-empty"><Bell size={20} /><span>No order updates yet.</span></div>
                   )}
@@ -1069,8 +1148,8 @@ export default function AccountPage() {
                 </div>
 
                 <div className="user-profile-submit-row">
-                  <button type="submit" className="user-profile-save-btn">
-                    Save Changes
+                  <button type="submit" className="user-profile-save-btn" disabled={!hasUnsavedChanges || isSavingProfile}>
+                    {isSavingProfile ? 'Saving…' : 'Save Changes'}
                   </button>
                   {saved && (
                     <span className="user-profile-saved-badge">
@@ -1085,6 +1164,15 @@ export default function AccountPage() {
         </section>
       </div>
       <OrderDetailsDialog order={selectedOrder} onClose={() => setSelectedOrder(null)} />
+      <ConfirmDialog
+        open={Boolean(confirmAction)}
+        title={confirmAction?.title}
+        description={confirmAction?.description}
+        confirmLabel={confirmAction?.confirmLabel}
+        busy={confirmBusy}
+        onConfirm={runConfirmedAction}
+        onCancel={() => !confirmBusy && setConfirmAction(null)}
+      />
     </main>
   )
 }

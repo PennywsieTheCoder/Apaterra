@@ -6,11 +6,12 @@ import ProductCard from '../components/ProductCard'
 import ScrollReveal from '../components/ScrollReveal'
 import { useCatalog } from '../context/catalog-store'
 import { categories, hairNeeds, products } from '../data/catalog'
+import RetryState from '../components/RetryState'
 
 export default function ShopPage() {
   const [params, setParams] = useSearchParams()
   const [filtersOpen, setFiltersOpen] = useState(false)
-  const { products: catalogProducts } = useCatalog()
+  const { products: catalogProducts, error: catalogError, refreshProducts } = useCatalog()
   const category = params.get('category') || 'All'
   const need = params.get('need') || ''
   const search = params.get('search') || ''
@@ -56,9 +57,9 @@ export default function ShopPage() {
     <ScrollReveal className="shop-hero" rootMargin="0px 0px 8% 0px" threshold={0.05}>
       <div className="shop-hero-copy">
         <p className="eyebrow">The Apa Terra collection</p>
-        <h1>Care chosen with intention.</h1>
-        <p>Build a routine around what your hair needs today—without the guesswork.</p>
-        <div className="shop-hero-points"><span><Leaf size={14} /> Purposeful formulas</span><span>Made for textured hair</span></div>
+        <h1>Shop by product or hair need.</h1>
+        <p>Use the filters to find products for moisture, breakage, scalp care, protective styles or definition.</p>
+        <div className="shop-hero-points"><span><Leaf size={14} /> Made for textured hair</span><span>Clear product directions</span></div>
       </div>
       <div className="shop-hero-gallery" aria-hidden="true">
         <div className="shop-hero-image shop-hero-image-main"><img src={products[7].image} alt="" /></div>
@@ -71,6 +72,7 @@ export default function ShopPage() {
         {activeFilters.length ? activeFilters.map((filter) => <button type="button" key={filter.key} onClick={() => updateFilter(filter.key, filter.clearValue)}>{filter.label}<X size={12} /></button>) : <span>Showing the full collection</span>}
       </div>
     </ScrollReveal>
+    {catalogError && <RetryState compact title="The latest catalogue could not be loaded." message="You can keep browsing the saved collection or try again." onRetry={refreshProducts} />}
     <ScrollReveal as="div" className="shop-layout" rootMargin="0px 0px 8% 0px" threshold={0.05}>
       <aside className="filter-panel">
         <div className="filter-panel-heading"><div><p>Refine</p><h2>Find your care</h2></div><SlidersHorizontal size={18} /></div>

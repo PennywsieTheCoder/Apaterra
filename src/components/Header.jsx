@@ -44,6 +44,10 @@ export default function Header() {
     user ? authProfile?.last_name || user.user_metadata?.last_name : profile.lastName,
   ]
     .filter(Boolean).map((name) => name[0]).join('').slice(0, 2).toUpperCase() || 'AT'
+  const profileName = [
+    user ? authProfile?.first_name || user.user_metadata?.first_name : profile.firstName,
+    user ? authProfile?.last_name || user.user_metadata?.last_name : profile.lastName,
+  ].filter(Boolean).join(' ') || user?.email || 'Your account'
 
   useEffect(() => {
     const updateHeader = () => setIsScrolled(window.scrollY > 24)
@@ -141,6 +145,8 @@ export default function Header() {
 
     setSearchOpen(true)
     setMenuOpen(false)
+    setNotificationsOpen(false)
+    setAccountMenuOpen(false)
     requestAnimationFrame(() => mobileSearchInput.current?.focus())
   }
 
@@ -160,6 +166,8 @@ export default function Header() {
   function openNotifications() {
     setNotificationsOpen((current) => !current)
     setAccountMenuOpen(false)
+    setMenuOpen(false)
+    setSearchOpen(false)
   }
 
   async function markAllNotificationsRead() {
@@ -220,6 +228,8 @@ export default function Header() {
             aria-label={`Shopping cart with ${itemCount} items`}
             onClick={() => {
               setSearchOpen(false)
+              setNotificationsOpen(false)
+              setMenuOpen(false)
               setIsOpen(true)
             }}
           >
@@ -331,6 +341,8 @@ export default function Header() {
             onClick={() => {
               setMenuOpen((isOpen) => !isOpen)
               setSearchOpen(false)
+              setNotificationsOpen(false)
+              setAccountMenuOpen(false)
             }}
           >
             <span />
@@ -354,16 +366,19 @@ export default function Header() {
               tabIndex={menuOpen ? 0 : -1}
               onClick={() => {
                 setMenuOpen(false)
-                navigate('/account')
+                navigate(user ? '/account' : '/login')
               }}
             >
-              <span>
+              <span className="mobile-menu-account">
                 {profilePhoto ? (
                   <img className="mobile-menu-profile-photo" src={profilePhoto} alt="" />
                 ) : (
-                  <UserRound size={17} />
-                )}{' '}
-                My profile
+                  <span className="mobile-menu-profile-monogram" aria-hidden="true">{profileInitials}</span>
+                )}
+                <span className="mobile-menu-account-copy">
+                  <strong>{user ? profileName : 'Sign in'}</strong>
+                  <small>{user ? 'View your profile' : 'Access your account'}</small>
+                </span>
               </span>
               <ArrowUpRight size={16} />
             </button>
@@ -379,6 +394,12 @@ export default function Header() {
                 <i />
               </span>
             </button>
+            {user && (
+              <button type="button" className="mobile-menu-logout" tabIndex={menuOpen ? 0 : -1} onClick={logOut}>
+                <span><LogOut size={17} /> Log out</span>
+                <ArrowUpRight size={16} />
+              </button>
+            )}
           </div>
         </div>
       </header>

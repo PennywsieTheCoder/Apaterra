@@ -37,6 +37,9 @@ import { mapSupabaseProduct } from '../lib/products'
 import { mapSupabaseOrder } from '../lib/orders'
 import OrderDetailsDialog from '../components/OrderDetailsDialog'
 import { calculateFulfilmentRate, isRevenueOrder, sumOrderRevenue, sumOrderUnits } from '../lib/orderMetrics'
+import { useToast } from '../context/toast-store'
+import ConfirmDialog from '../components/ConfirmDialog'
+import RetryState from '../components/RetryState'
 
 const initialProduct = {
   name: '',
@@ -241,6 +244,7 @@ function AdminSelect({ label, value, options, placeholder, onChange, allowCustom
 
 export default function AdminPage() {
   const navigate = useNavigate()
+  const { pushToast } = useToast()
   const { profile: authProfile, user } = useAuth()
   const [activeSection, setActiveSection] = useState('dashboard')
   const [utcHour, setUtcHour] = useState(() => new Date().getUTCHours())
@@ -261,13 +265,22 @@ export default function AdminPage() {
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [adminNotifications, setAdminNotifications] = useState([])
   const [notificationError, setNotificationError] = useState('')
+  const [adminLoadError, setAdminLoadError] = useState('')
   const [cancellationTarget, setCancellationTarget] = useState(null)
   const [selectedOrder, setSelectedOrder] = useState(null)
   const [isCancellingOrder, setIsCancellingOrder] = useState(false)
   const [deliveryZones, setDeliveryZones] = useState([])
   const [deliveryZoneForm, setDeliveryZoneForm] = useState({ region: '', city: '', fee: '', delivery_window: '1–3 business days' })
   const [isSavingDeliveryZone, setIsSavingDeliveryZone] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState(null)
+  const [isDeleting, setIsDeleting] = useState(false)
   const productFormRef = useRef(null)
+
+  useEffect(() => {
+    if (!message) return
+    const isSuccess = /(live|updated|removed|migrated|saved|restored|assigned|cleared)/i.test(message)
+    pushToast(message, { type: isSuccess ? 'success' : 'error' })
+  }, [message, pushToast])
 
   useEffect(() => {
     let intervalId
@@ -301,7 +314,7 @@ export default function AdminPage() {
     if (!supabase) return
     const { data, error } = await supabase.from('products').select('*').order('created_at')
     if (error) {
-      setMessage(error.message)
+      setAdminLoadError(error.message)
       return
     }
     setManagedProducts((data || []).map(mapSupabaseProduct))
@@ -314,7 +327,7 @@ export default function AdminPage() {
       .select('*, order_items(*)')
       .order('created_at', { ascending: false })
     if (error) {
-      setMessage(error.message)
+      setAdminLoadError(error.message)
       return
     }
     setDatabaseOrders((data || []).map(mapSupabaseOrder))
@@ -329,6 +342,7 @@ export default function AdminPage() {
       .limit(20)
     if (error) {
       setNotificationError(error.message)
+      setAdminLoadError(error.message)
       return
     }
     setAdminNotifications(data || [])
@@ -343,11 +357,16 @@ export default function AdminPage() {
       .order('region')
       .order('city')
     if (error) {
-      setMessage(error.message)
+      setAdminLoadError(error.message)
       return
     }
     setDeliveryZones(data || [])
   }, [])
+
+  async function retryAdminData() {
+    setAdminLoadError('')
+    await Promise.all([loadManagedProducts(), loadOrders(), loadNotifications(), loadDeliveryZones()])
+  }
 
   useEffect(() => {
     const loadProducts = window.setTimeout(loadManagedProducts, 0)
@@ -397,6 +416,36 @@ export default function AdminPage() {
     [profile.firstName, profile.lastName].filter(Boolean).join(' ') || 'Apa Terra Curator'
   const adminEmail = profile.email.trim() || 'studio@apaterra.com'
   const isUtcNight = utcHour < 6 || utcHour >= 18
+  const missingProductFields = [
+    form.name,
+    form.type,
+    form.price,
+    form.size,
+    form.description,
+    form.image,
+  ].filter((value) => !String(value).trim()).length
+  const productHasChanges = !editingProduct || JSON.stringify(form) !== JSON.stringify({
+    name: editingProduct.name,
+    type: editingProduct.type,
+    category: editingProduct.category,
+    price: String(editingProduct.price),
+    stock: String(editingProduct.stock),
+    size: editingProduct.size,
+    needs: [...editingProduct.needs],
+    badge: editingProduct.badge,
+    image: editingProduct.image,
+    description: editingProduct.description,
+    ingredients: editingProduct.ingredients,
+    directions: editingProduct.directions,
+    benefits: editingProduct.benefits.join('\n'),
+    cardColor: editingProduct.cardColor,
+    active: editingProduct.active,
+  })
+  const missingDeliveryZoneFields = [
+    deliveryZoneForm.region,
+    deliveryZoneForm.fee,
+    deliveryZoneForm.delivery_window,
+  ].filter((value) => !String(value).trim()).length
 
   const allProducts = useMemo(() => {
     const productsById = new Map(defaultProducts.map((product) => [product.id, product]))
@@ -665,6 +714,7 @@ export default function AdminPage() {
 
   async function saveProduct(event) {
     event.preventDefault()
+    if (isPublishing) return
     if (
       !form.name.trim() ||
       !form.type.trim() ||
@@ -673,7 +723,7 @@ export default function AdminPage() {
       !form.description.trim() ||
       !form.image
     ) {
-      setMessage('Add a name, product type, price, size, description and product image before saving.')
+      setMessage('')
       return
     }
     if (!supabase) {
@@ -746,7 +796,7 @@ export default function AdminPage() {
     setIsPublishing(false)
   }
 
-  async function removeCustomProduct(productId) {
+  async function removeCustomProductConfirmed(productId) {
     const product = managedProducts.find((item) => item.id === productId)
     if (!supabase || !product) return
     const { error: productError } = await supabase.from('products').delete().eq('id', productId)
@@ -758,6 +808,17 @@ export default function AdminPage() {
     if (editingProduct?.id === productId) resetProductEditor()
     await Promise.all([refreshProducts(), loadManagedProducts()])
     setMessage(`${product.name} was removed from the shop.`)
+  }
+
+  function removeCustomProduct(productId) {
+    const product = managedProducts.find((item) => item.id === productId)
+    if (!product) return
+    setDeleteTarget({
+      title: `Remove ${product.name}?`,
+      description: 'This product will be removed from the shop and its uploaded image will be deleted.',
+      confirmLabel: 'Remove product',
+      action: () => removeCustomProductConfirmed(productId),
+    })
   }
 
   async function importStarterCatalog() {
@@ -879,7 +940,7 @@ export default function AdminPage() {
 
   async function saveDeliveryZone(event) {
     event.preventDefault()
-    if (!supabase || isSavingDeliveryZone) return
+    if (!supabase || isSavingDeliveryZone || missingDeliveryZoneFields) return
     setIsSavingDeliveryZone(true)
     setMessage('')
     const { error } = await supabase.from('delivery_zones').upsert({
@@ -900,14 +961,31 @@ export default function AdminPage() {
     setIsSavingDeliveryZone(false)
   }
 
-  async function removeDeliveryZone(zoneId) {
-    if (!supabase || !window.confirm('Remove this delivery rule?')) return
+  async function removeDeliveryZoneConfirmed(zoneId) {
+    if (!supabase) return
     const { error } = await supabase.from('delivery_zones').delete().eq('id', zoneId)
     if (error) setMessage(error.message)
     else {
       setMessage('Delivery rule removed.')
       await loadDeliveryZones()
     }
+  }
+
+  function removeDeliveryZone(zone) {
+    setDeleteTarget({
+      title: 'Remove this delivery rule?',
+      description: `${zone.city || 'All cities'}, ${zone.region} will no longer have this delivery fee available at checkout.`,
+      confirmLabel: 'Remove rule',
+      action: () => removeDeliveryZoneConfirmed(zone.id),
+    })
+  }
+
+  async function confirmDeleteTarget() {
+    if (!deleteTarget?.action || isDeleting) return
+    setIsDeleting(true)
+    await deleteTarget.action()
+    setIsDeleting(false)
+    setDeleteTarget(null)
   }
 
   async function toggleNotificationCentre() {
@@ -1063,6 +1141,7 @@ export default function AdminPage() {
             </button>
           ))}
         </div>
+        {adminLoadError && <RetryState compact title="Some admin data could not be loaded." message={adminLoadError} onRetry={retryAdminData} />}
 
         {/* Main Workspace: Left Vertical Pill Sidebar + Right Content Area */}
         <div className="admin-workspace-grid">
@@ -1336,12 +1415,12 @@ export default function AdminPage() {
                       <div className="stack-card card-mid">
                         <div className="stack-card-head">
                           <span>APA TERRA</span>
-                          <small>100 ML</small>
+                          <small>50 ML</small>
                         </div>
                         <strong>ROOTED SCALP DROPS</strong>
                         <div className="stack-card-foot">
                           <span>SCALP &amp; HAIR OIL</span>
-                          <b>GHS 122</b>
+                          <b>GHS 85</b>
                         </div>
                       </div>
                       <div className="stack-card card-bot">
@@ -1349,10 +1428,10 @@ export default function AdminPage() {
                           <span>APA TERRA</span>
                           <small>250 ML</small>
                         </div>
-                        <strong>SOFTENING RITUAL</strong>
+                        <strong>SOFTENING TREATMENT</strong>
                         <div className="stack-card-foot">
                           <span>DEEP TREATMENT</span>
-                          <b>GHS 115</b>
+                          <b>GHS 120</b>
                         </div>
                       </div>
                     </div>
@@ -1590,11 +1669,11 @@ export default function AdminPage() {
                   <form className="admin-bento-card admin-delivery-form" onSubmit={saveDeliveryZone}>
                     <h3>Add delivery rule</h3>
                     <p>Leave the city blank to create a region-wide fallback fee.</p>
-                    <label><span>Region</span><input required value={deliveryZoneForm.region} onChange={(event) => setDeliveryZoneForm((current) => ({ ...current, region: event.target.value }))} placeholder="e.g. Greater Accra" /></label>
+                    <label><span>Region <small>Required</small></span><input required value={deliveryZoneForm.region} onChange={(event) => setDeliveryZoneForm((current) => ({ ...current, region: event.target.value }))} placeholder="e.g. Greater Accra" /></label>
                     <label><span>City <small>Optional</small></span><input value={deliveryZoneForm.city} onChange={(event) => setDeliveryZoneForm((current) => ({ ...current, city: event.target.value }))} placeholder="e.g. Accra" /></label>
-                    <label><span>Delivery fee (GHS)</span><input required type="number" min="0" step="0.01" value={deliveryZoneForm.fee} onChange={(event) => setDeliveryZoneForm((current) => ({ ...current, fee: event.target.value }))} placeholder="0.00" /></label>
-                    <label><span>Delivery window</span><input required value={deliveryZoneForm.delivery_window} onChange={(event) => setDeliveryZoneForm((current) => ({ ...current, delivery_window: event.target.value }))} placeholder="e.g. 1–3 business days" /></label>
-                    <button type="submit" className="admin-sage-btn" disabled={isSavingDeliveryZone}>{isSavingDeliveryZone ? 'Saving…' : 'Save delivery rule'}</button>
+                    <label><span>Delivery fee (GHS) <small>Required</small></span><input required type="number" min="0" step="0.01" value={deliveryZoneForm.fee} onChange={(event) => setDeliveryZoneForm((current) => ({ ...current, fee: event.target.value }))} placeholder="0.00" /></label>
+                    <label><span>Delivery window <small>Required</small></span><input required value={deliveryZoneForm.delivery_window} onChange={(event) => setDeliveryZoneForm((current) => ({ ...current, delivery_window: event.target.value }))} placeholder="e.g. 1–3 business days" /></label>
+                    <button type="submit" className="admin-sage-btn" disabled={isSavingDeliveryZone || Boolean(missingDeliveryZoneFields)}>{isSavingDeliveryZone ? 'Saving…' : 'Save delivery rule'}</button>
                   </form>
 
                   <article className="admin-bento-card admin-delivery-list">
@@ -1603,7 +1682,7 @@ export default function AdminPage() {
                       {deliveryZones.map((zone) => <div key={zone.id}>
                         <div><strong>{zone.city || 'All cities'}, {zone.region}</strong><small>{zone.delivery_window}</small></div>
                         <b>{formatMoney(zone.fee)}</b>
-                        <button type="button" onClick={() => removeDeliveryZone(zone.id)} aria-label={`Remove delivery rule for ${zone.city || zone.region}`}><Trash2 size={16} /></button>
+                        <button type="button" onClick={() => removeDeliveryZone(zone)} aria-label={`Remove delivery rule for ${zone.city || zone.region}`}><Trash2 size={16} /></button>
                       </div>)}
                     </div> : <p className="admin-card-sub">No rules yet. Checkout will continue to confirm delivery costs separately.</p>}
                   </article>
@@ -1753,7 +1832,7 @@ export default function AdminPage() {
 
                     <div className="admin-fields">
                       <label>
-                        <span>Product name</span>
+                        <span>Product name <small>Required</small></span>
                         <input
                           name="name"
                           value={form.name}
@@ -1762,7 +1841,7 @@ export default function AdminPage() {
                         />
                       </label>
                       <AdminSelect
-                        label="Product type"
+                        label="Product type · Required"
                         value={form.type}
                         options={productTypes}
                         placeholder="Select product type"
@@ -1782,7 +1861,7 @@ export default function AdminPage() {
                         }}
                       />
                       <label>
-                        <span>Price (GHS)</span>
+                        <span>Price (GHS) <small>Required</small></span>
                         <input
                           name="price"
                           type="number"
@@ -1806,7 +1885,7 @@ export default function AdminPage() {
                         />
                       </label>
                       <AdminSelect
-                        label="Size"
+                        label="Size · Required"
                         value={form.size}
                         options={sizes}
                         placeholder="Select size"
@@ -1826,7 +1905,7 @@ export default function AdminPage() {
                         }}
                       />
                       <label className="admin-full">
-                        <span>Product image</span>
+                        <span>Product image <small>Required</small></span>
                         <input
                           className="admin-image-input"
                           type="file"
@@ -1842,7 +1921,7 @@ export default function AdminPage() {
                         </small>
                       </label>
                       <label className="admin-full">
-                        <span>Description</span>
+                        <span>Description <small>Required</small></span>
                         <textarea
                           name="description"
                           rows="3"
@@ -1922,7 +2001,7 @@ export default function AdminPage() {
                       )}
                       <div className="admin-form-actions">
                         {editingProduct && <button type="button" className="admin-cancel-edit" onClick={resetProductEditor}><X size={15} /> Cancel</button>}
-                        <button type="submit" disabled={isPublishing}>
+                        <button type="submit" disabled={isPublishing || Boolean(missingProductFields) || !productHasChanges}>
                           {isPublishing ? 'Saving…' : editingProduct ? 'Save changes' : 'Publish product'}
                           {editingProduct ? <Check size={16} /> : <PackagePlus size={16} />}
                         </button>
@@ -2066,6 +2145,15 @@ export default function AdminPage() {
           </section>
         </div>
       )}
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        title={deleteTarget?.title}
+        description={deleteTarget?.description}
+        confirmLabel={deleteTarget?.confirmLabel}
+        busy={isDeleting}
+        onConfirm={confirmDeleteTarget}
+        onCancel={() => !isDeleting && setDeleteTarget(null)}
+      />
       <OrderDetailsDialog order={selectedOrder} admin onClose={() => setSelectedOrder(null)} />
     </main>
   )

@@ -1,13 +1,31 @@
 import { Heart, ShoppingBag } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { formatMoney } from '../data/catalog'
 import { useCart } from '../context/cart-store'
+import { useFavorites } from '../context/favorites-store'
 import { getInventoryState } from '../lib/inventory'
 import ProductVisual from './ProductVisual'
+import { useToast } from '../context/toast-store'
 
 export default function ProductCard({ product }) {
   const { addItem } = useCart()
+  const { isFavorite, isPending, loading: favoritesLoading, toggleFavorite } = useFavorites()
+  const location = useLocation()
+  const navigate = useNavigate()
+  const { pushToast } = useToast()
   const inventory = getInventoryState(product)
+  const saved = isFavorite(product.id)
+
+  async function handleFavorite() {
+    const result = await toggleFavorite(product.id)
+    if (result.requiresAuth) {
+      navigate('/login', { state: { from: `${location.pathname}${location.search}` } })
+    } else if (result.error) {
+      pushToast(`We couldn’t update ${product.name}. Please try again.`, { type: 'error' })
+    } else {
+      pushToast(saved ? `${product.name} removed from Favorites.` : `${product.name} saved to Favorites.`)
+    }
+  }
   return (
     <article className="product-card" style={{ '--product-card-color': product.cardColor }}>
       <Link to={`/products/${product.id}`} className="product-image-link">
@@ -24,7 +42,16 @@ export default function ProductCard({ product }) {
           <div className="product-card-options"><span>{product.size}</span></div>
         </div>
         <div className="product-card-actions">
-          <button type="button" className="product-save-button" aria-label={`Save ${product.name}`}><Heart size={16} /></button>
+          <button
+            type="button"
+            className={`product-save-button${saved ? ' is-saved' : ''}`}
+            aria-label={saved ? `Remove ${product.name} from favorites` : `Save ${product.name} to favorites`}
+            aria-pressed={saved}
+            disabled={favoritesLoading || isPending(product.id)}
+            onClick={handleFavorite}
+          >
+            <Heart size={16} fill={saved ? 'currentColor' : 'none'} />
+          </button>
           <button type="button" className="product-add-button" disabled={inventory.isOutOfStock} onClick={() => addItem(product)}><span>{inventory.isOutOfStock ? 'Sold out' : 'Add to cart'}</span><ShoppingBag size={15} /></button>
         </div>
       </div>

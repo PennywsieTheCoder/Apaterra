@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ArrowRight, Eye, EyeOff, LockKeyhole, ShieldUser, UserRound } from 'lucide-react'
+import { ArrowRight, Eye, EyeOff, LoaderCircle, LockKeyhole, ShieldUser, UserRound } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import BrandMark from '../components/BrandMark'
 import loginAfro from '../assets/login-afro-wide.jpg'
@@ -19,6 +19,7 @@ export default function LoginPage() {
   const location = useLocation()
   const { configured, recoveryMode, resetPassword, signIn, signUp, updatePassword } = useAuth()
   const returnTo = typeof location.state?.from === 'string' ? location.state.from : '/shop'
+  const noticeIsSuccess = /^(Account created|Signed in)|instructions have been sent/i.test(notice)
 
   async function handleSubmit(event) {
     event.preventDefault()
@@ -59,7 +60,22 @@ export default function LoginPage() {
       setNotice(error ? error.message : `Password reset instructions have been sent to ${identifier.trim()}.`)
       return
     }
-    if (!identifier.trim() || !password) {
+    if (isSignUp) {
+      const missingFields = [
+        !fullName.trim() && 'your full name',
+        !identifier.trim() && 'your email address',
+        !password && 'a password',
+      ].filter(Boolean)
+
+      if (missingFields.length) {
+        const lastField = missingFields.at(-1)
+        const fieldList = missingFields.length === 1
+          ? lastField
+          : `${missingFields.slice(0, -1).join(', ')} and ${lastField}`
+        setNotice(`Please enter ${fieldList}.`)
+        return
+      }
+    } else if (!identifier.trim() || !password) {
       setNotice('Please enter your email address and password.')
       return
     }
@@ -67,14 +83,6 @@ export default function LoginPage() {
     if (!identifier.includes('@')) {
       setNotice('Please enter a valid email address.')
       return
-    }
-
-    if (isSignUp) {
-      if (!fullName.trim()) {
-        setNotice('Please enter your full name to create an account.')
-        return
-      }
-
     }
 
     setSubmitting(true)
@@ -157,6 +165,7 @@ export default function LoginPage() {
                     <UserRound size={15} strokeWidth={2} />
                   </span>
                   <input
+                    className="inspo-pill-input"
                     type="text"
                     value={fullName}
                     onChange={(e) => {
@@ -175,6 +184,7 @@ export default function LoginPage() {
                   <ShieldUser size={15} strokeWidth={2} />
                 </span>
                 <input
+                  className="inspo-pill-input"
                   type="email"
                   value={identifier}
                   onChange={(e) => {
@@ -192,6 +202,7 @@ export default function LoginPage() {
                   <LockKeyhole size={15} strokeWidth={2} />
                 </span>
                 <input
+                  className="inspo-pill-input"
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => {
@@ -218,6 +229,7 @@ export default function LoginPage() {
                     <LockKeyhole size={15} strokeWidth={2} />
                   </span>
                   <input
+                    className="inspo-pill-input"
                     type={showPassword ? 'text' : 'password'}
                     value={confirmPassword}
                     onChange={(e) => {
@@ -232,15 +244,26 @@ export default function LoginPage() {
               )}
 
               {notice && (
-                <p className="inspo-login-notice" role="status">
+                <p className={`inspo-login-notice ${noticeIsSuccess ? 'is-success' : 'is-error'}`} role={noticeIsSuccess ? 'status' : 'alert'}>
                   {notice}
                 </p>
               )}
 
               <div className="inspo-login-actions">
-                <button type="submit" className="inspo-submit-pill" disabled={submitting}>
-                  <span>{submitting ? 'Please wait…' : recoveryMode ? 'Update password' : isForgotPassword ? 'Send reset link' : isSignUp ? 'Create account' : 'Sign in'}</span>
-                  <ArrowRight size={16} aria-hidden="true" />
+                <button type="submit" className="inspo-submit-pill" disabled={submitting} aria-busy={submitting}>
+                  {submitting ? (
+                    <>
+                      <LoaderCircle className="login-submit-spinner" size={18} aria-hidden="true" />
+                      <span className="visually-hidden">
+                        {recoveryMode ? 'Updating password' : isForgotPassword ? 'Sending reset link' : isSignUp ? 'Creating account' : 'Signing you in'}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <span>{recoveryMode ? 'Update password' : isForgotPassword ? 'Send reset link' : isSignUp ? 'Create account' : 'Sign in'}</span>
+                      <ArrowRight size={16} aria-hidden="true" />
+                    </>
+                  )}
                 </button>
 
                 {!isSignUp && !recoveryMode && !isForgotPassword && (

@@ -64,7 +64,14 @@ test('shop, product details, cart and dark mode work', async ({ page }) => {
   await expect(page.getByRole('link', { name: 'Continue to checkout' })).toBeVisible()
 
   await page.getByRole('button', { name: 'Continue shopping' }).click()
-  await page.getByRole('button', { name: 'Switch to dark mode' }).first().click()
+  const desktopThemeToggle = page.getByRole('button', { name: 'Switch to dark mode' }).first()
+  if (await desktopThemeToggle.isVisible()) {
+    await desktopThemeToggle.click()
+  } else {
+    await page.getByRole('button', { name: 'Open navigation' }).click()
+    await page.locator('.mobile-menu-tools button').filter({ hasText: 'Dark mode' }).click()
+    await page.getByRole('button', { name: 'Close navigation' }).click()
+  }
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
 
   await page.locator('.product-image-link').first().click()

@@ -17,7 +17,7 @@ test('visitor can browse products and add one to the cart', async ({ page }) => 
 test('visitor is redirected to login when opening checkout', async ({ page }) => {
   await page.goto('/checkout')
 
-  await expect(page).toHaveURL(/#\/login/)
+  await expect(page).toHaveURL(/\/login\/?$/)
   await expect(
     page.getByRole('heading', { name: 'Care starts here.' })
   ).toBeVisible()

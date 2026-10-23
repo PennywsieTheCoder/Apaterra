@@ -7949,6 +7949,7 @@ body,
 .admin-section-view {
   display: grid;
   gap: 1.25rem;
+  min-width: 0;
 }
 
 .admin-section-header {
@@ -8401,11 +8402,14 @@ body,
   display: grid;
   gap: 1.25rem;
   grid-template-columns: 1.55fr 1fr;
+  min-width: 0;
 }
 
 .admin-bento-form {
   margin: 0;
   max-width: none;
+  min-width: 0;
+  width: 100%;
 }
 
 .admin-studio-sidebar {
@@ -9244,8 +9248,30 @@ body,
 }
 
 @media (max-width: 820px) {
+  .admin-bento-page,
+  .admin-bento-frame,
+  .admin-main-canvas,
+  .admin-section-view,
+  .admin-studio-layout,
+  .admin-product-form {
+    max-width: 100%;
+    min-width: 0;
+  }
   .admin-workspace-grid {
     grid-template-columns: 1fr;
+    min-width: 0;
+  }
+  .admin-product-form {
+    width: 100%;
+  }
+  .admin-fields,
+  .admin-fields > label,
+  .admin-fields > .admin-select-field,
+  .admin-fields input,
+  .admin-fields textarea,
+  .admin-fields select {
+    min-width: 0;
+    width: 100%;
   }
   .admin-sidebar-rail {
     display: none;
@@ -9259,6 +9285,10 @@ body,
 }
 
 @media (max-width: 560px) {
+  .admin-bento-page {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
   .admin-kpi-row,
   .admin-balance-subcards {
     grid-template-columns: 1fr;

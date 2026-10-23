@@ -11,7 +11,13 @@ export function ToastProvider({ children }) {
 
   const pushToast = useCallback((message, options = {}) => {
     const id = window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`
-    const toast = { id, message, type: options.type || 'success' }
+    const toast = {
+      id,
+      message,
+      type: options.type || 'success',
+      actionLabel: options.actionLabel,
+      onAction: options.onAction,
+    }
     setToasts((current) => [...current.slice(-2), toast])
     window.setTimeout(() => dismissToast(id), options.duration || 4200)
     return id
@@ -27,7 +33,10 @@ export function ToastProvider({ children }) {
           <div className={`app-toast is-${toast.type}`} role="status" key={toast.id}>
             <span>{toast.type === 'error' ? <AlertCircle size={17} /> : <Check size={17} />}</span>
             <p>{toast.message}</p>
-            <button type="button" aria-label="Dismiss notification" onClick={() => dismissToast(toast.id)}><X size={15} /></button>
+            <div className="app-toast-actions">
+              {toast.actionLabel && toast.onAction && <button type="button" className="app-toast-action" onClick={() => { toast.onAction(); dismissToast(toast.id) }}>{toast.actionLabel}</button>}
+              <button type="button" aria-label="Dismiss notification" onClick={() => dismissToast(toast.id)}><X size={15} /></button>
+            </div>
           </div>
         ))}
       </div>

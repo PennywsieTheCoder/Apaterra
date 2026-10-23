@@ -26,6 +26,7 @@ import OrderDetailsDialog from '../components/OrderDetailsDialog'
 import ProductCard from '../components/ProductCard'
 import { useCatalog } from '../context/catalog-store'
 import { useFavorites } from '../context/favorites-store'
+import { useToast } from '../context/toast-store'
 import ConfirmDialog from '../components/ConfirmDialog'
 import RetryState from '../components/RetryState'
 
@@ -157,6 +158,7 @@ export default function AccountPage() {
   const { profile: authProfile, resetPassword, signOut, updateProfile, user } = useAuth()
   const { products: catalogProducts } = useCatalog()
   const { error: favoritesError, favoriteIds, loading: favoritesLoading, refreshFavorites } = useFavorites()
+  const { pushToast } = useToast()
   const initialProfile = profileFromSupabase(authProfile, user)
   const initialTab = searchParams.get('tab')
   const deepLinkedOrderId = searchParams.get('order')
@@ -269,6 +271,7 @@ export default function AccountPage() {
     supabase
       .from('delivery_addresses')
       .select('*')
+      .eq('user_id', user.id)
       .order('is_default', { ascending: false })
       .order('created_at', { ascending: true })
       .then(({ data, error }) => {
@@ -304,6 +307,31 @@ export default function AccountPage() {
       notification.read_at ? notification : { ...notification, read_at: readAt }
     )))
     await supabase.from('notifications').update({ read_at: readAt }).is('read_at', null)
+  }
+
+  async function clearReadNotificationsConfirmed() {
+    if (!supabase || !user?.id) return
+    const { error } = await supabase
+      .from('notifications')
+      .delete()
+      .eq('user_id', user.id)
+      .not('read_at', 'is', null)
+    if (error) {
+      pushToast('Read notifications could not be cleared. Please try again.', { type: 'error' })
+      return
+    }
+    setNotifications((current) => current.filter((notification) => !notification.read_at))
+    window.dispatchEvent(new Event('apaterra-notifications-cleared'))
+    pushToast('Read notifications cleared.')
+  }
+
+  function clearReadNotifications() {
+    setConfirmAction({
+      title: 'Clear read notifications?',
+      description: 'Read updates will be removed permanently. Unread notifications will stay in your inbox.',
+      confirmLabel: 'Clear read',
+      onConfirm: clearReadNotificationsConfirmed,
+    })
   }
 
   function retryAccountActivity() {
@@ -1082,7 +1110,10 @@ export default function AccountPage() {
                 <section className="user-notification-inbox" aria-label="Recent notifications">
                   <div className="user-notification-inbox-head">
                     <strong>Recent updates</strong>
-                    <span>{notifications.length}</span>
+                    <div className="user-notification-inbox-actions">
+                      <span>{notifications.length}</span>
+                      {notifications.some((notification) => notification.read_at) && <button type="button" onClick={clearReadNotifications}>Clear read</button>}
+                    </div>
                   </div>
                   {notificationsLoading && <p>Loading your updates…</p>}
                   {notificationsError && <RetryState compact title="Notifications could not be loaded." message={notificationsError} onRetry={retryAccountActivity} />}

@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from './auth-store'
 import { FavoritesContext } from './favorites-store'
+import { trackEvent } from '../lib/analytics'
+import { captureOperationalError } from '../lib/monitoring'
 
 export function FavoritesProvider({ children }) {
   const { user } = useAuth()
@@ -54,6 +56,7 @@ export function FavoritesProvider({ children }) {
     const { error: requestError } = await request
 
     if (requestError) {
+      captureOperationalError(requestError, 'favorite_update', { productId, action: wasFavorite ? 'remove' : 'add' })
       setFavoritesState((current) => ({
         userId: user.id,
         error: requestError.message,
@@ -61,6 +64,8 @@ export function FavoritesProvider({ children }) {
           ? (current.ids.includes(productId) ? current.ids : [productId, ...current.ids])
           : current.ids.filter((id) => id !== productId),
       }))
+    } else {
+      trackEvent(wasFavorite ? 'favorite_removed' : 'favorite_added', { productId })
     }
     setPendingIds((current) => current.filter((id) => id !== productId))
     return { requiresAuth: false, error: requestError }

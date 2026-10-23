@@ -1,15 +1,24 @@
 import { useState } from 'react'
-import { ArrowUpRight, MessageCircle, ShieldCheck, Truck } from 'lucide-react'
+import { ArrowUpRight, Camera, MessageCircle, Music2, Play, ShieldCheck, Truck, Users } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import footerImage from '../assets/footer-apaterra-v4.jpg'
 import syntiqLogo from '../assets/syntiq-labs-logo.png'
 import BrandMark from './BrandMark'
 import { supabase } from '../lib/supabase'
+import { useBusinessSettings } from '../context/business-settings-store'
+import { getSafeExternalUrl } from '../lib/businessSettings'
 
 export default function Footer() {
+  const { settings } = useBusinessSettings()
   const [email, setEmail] = useState('')
   const [newsletterMessage, setNewsletterMessage] = useState('')
   const [isSubscribing, setIsSubscribing] = useState(false)
+  const socialLinks = [
+    { label: 'Instagram', href: getSafeExternalUrl(settings.instagram_url), icon: Camera },
+    { label: 'TikTok', href: getSafeExternalUrl(settings.tiktok_url), icon: Music2 },
+    { label: 'YouTube', href: getSafeExternalUrl(settings.youtube_url), icon: Play },
+    { label: 'Facebook', href: getSafeExternalUrl(settings.facebook_url), icon: Users },
+  ].filter((item) => item.href)
 
   async function subscribeToNewsletter(event) {
     event.preventDefault()
@@ -61,11 +70,14 @@ export default function Footer() {
             <div><Link className="brand footer-brand" to="/" aria-label="Apa Terra home"><BrandMark /></Link><p>Rooted care for African-textured hair.</p></div>
             <div><h3>Shop</h3><Link to="/shop">All products</Link><Link to="/hair-needs">Hair needs</Link><Link to="/routines">Routines</Link></div>
             <div><h3>Discover</h3><Link to="/story">Our story</Link><Link to="/hair-needs">Shop by hair need</Link><Link to="/routines">Product routines</Link></div>
-            <div><h3>Your account</h3><Link to="/account">Profile</Link><Link to="/account?tab=orders">Orders</Link><Link to="/account?tab=delivery">Delivery addresses</Link></div>
+            <div><h3>Customer care</h3><Link to="/contact">Contact</Link><Link to="/delivery">Delivery</Link><Link to="/returns">Returns</Link><Link to="/privacy">Privacy</Link><Link to="/terms">Terms</Link></div>
           </div>
           <div className="footer-bottom">
             <div className="footer-meta"><span>© {new Date().getFullYear()} Apaterra</span><span>Rooted in Ghana · GHS</span></div>
             <div className="footer-end">
+              {socialLinks.length > 0 && <div className="footer-social" aria-label="Apa Terra social media">
+                {socialLinks.map(({ label, href, icon: Icon }) => <a key={label} href={href} target="_blank" rel="noreferrer" aria-label={label}><Icon /></a>)}
+              </div>}
               <div className="footer-powered" aria-label="Powered by SYNTIQ Labs">
                 <span>Powered by</span>
                 <span className="footer-powered-logo" aria-hidden="true"><img src={syntiqLogo} alt="" /></span>
@@ -81,7 +93,7 @@ export default function Footer() {
 export function CompactFooter() {
   return <footer className="compact-footer">
     <div className="compact-footer-brand"><Link className="brand" to="/" aria-label="Apa Terra home"><BrandMark /></Link><p>Rooted care for African-textured hair.</p></div>
-    <nav aria-label="Account footer navigation"><Link to="/shop">Shop</Link><Link to="/routines">Routines</Link><Link to="/story">Our story</Link></nav>
+    <nav aria-label="Footer navigation"><Link to="/shop">Shop</Link><Link to="/delivery">Delivery</Link><Link to="/returns">Returns</Link><Link to="/privacy">Privacy</Link><Link to="/terms">Terms</Link></nav>
     <div className="compact-footer-meta"><span>© {new Date().getFullYear()} Apaterra</span><span>Rooted in Ghana · GHS</span></div>
   </footer>
 }

@@ -4,6 +4,7 @@ import { ArrowUpRight, Bell, LogOut, Moon, Search, ShoppingCart, Sun, UserRound,
 import BrandMark from './BrandMark'
 import { useCart } from '../context/cart-store'
 import { useAuth } from '../context/auth-store'
+import { useToast } from '../context/toast-store'
 import { supabase } from '../lib/supabase'
 
 const links = [['Shop', '/shop'], ['Routines', '/routines'], ['Hair needs', '/hair-needs'], ['Our story', '/story']]
@@ -25,6 +26,7 @@ export default function Header() {
   const [accountMenuOpen, setAccountMenuOpen] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [notifications, setNotifications] = useState([])
+  const [isClearingNotifications, setIsClearingNotifications] = useState(false)
   const [darkMode, setDarkMode] = useState(() => {
     const savedTheme = window.localStorage.getItem('apaterra-theme')
     return savedTheme ? savedTheme === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches
@@ -34,6 +36,7 @@ export default function Header() {
   const notificationsRef = useRef(null)
   const { itemCount, setIsOpen } = useCart()
   const { profile: authProfile, role, signOut, user } = useAuth()
+  const { pushToast } = useToast()
   const { pathname } = useLocation()
   const navigate = useNavigate()
   const isHome = pathname === '/'
@@ -110,12 +113,16 @@ export default function Header() {
       return undefined
     }
     let active = true
-    supabase
-      .from('notifications')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(5)
-      .then(({ data }) => { if (active) setNotifications(data || []) })
+    const loadNotifications = () => {
+      supabase
+        .from('notifications')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(5)
+        .then(({ data }) => { if (active) setNotifications(data || []) })
+    }
+    loadNotifications()
+    window.addEventListener('apaterra-notifications-cleared', loadNotifications)
     const channel = supabase
       .channel(`header-notifications-${user.id}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` }, ({ new: notification }) => {
@@ -124,6 +131,7 @@ export default function Header() {
       .subscribe()
     return () => {
       active = false
+      window.removeEventListener('apaterra-notifications-cleared', loadNotifications)
       supabase.removeChannel(channel)
     }
   }, [user?.id])
@@ -175,6 +183,24 @@ export default function Header() {
     const readAt = new Date().toISOString()
     setNotifications((current) => current.map((notification) => ({ ...notification, read_at: notification.read_at || readAt })))
     await supabase.from('notifications').update({ read_at: readAt }).is('read_at', null)
+  }
+
+  async function clearReadNotifications() {
+    if (!supabase || !user?.id || isClearingNotifications || !notifications.some((notification) => notification.read_at)) return
+    setIsClearingNotifications(true)
+    const { error } = await supabase
+      .from('notifications')
+      .delete()
+      .eq('user_id', user.id)
+      .not('read_at', 'is', null)
+    setIsClearingNotifications(false)
+    if (error) {
+      pushToast('Read notifications could not be cleared. Please try again.', { type: 'error' })
+      return
+    }
+    setNotifications((current) => current.filter((notification) => !notification.read_at))
+    window.dispatchEvent(new Event('apaterra-notifications-cleared'))
+    pushToast('Read notifications cleared.')
   }
 
   return (
@@ -234,7 +260,7 @@ export default function Header() {
             }}
           >
             <ShoppingCart size={20} />
-            <span className="cart-count">{itemCount}</span>
+            <span className="cart-count" key={itemCount}>{itemCount}</span>
           </button>
           {user && (
             <div className="header-notification-menu" ref={notificationsRef}>
@@ -243,7 +269,7 @@ export default function Header() {
               </button>
               {notificationsOpen && (
                 <div className="header-notification-popover" role="status">
-                  <div className="header-notification-popover-head"><strong>Notifications</strong><span>{notifications.length}</span>{notifications.some((notification) => !notification.read_at) && <button type="button" onClick={markAllNotificationsRead}>Mark all read</button>}</div>
+                  <div className="header-notification-popover-head"><strong>Notifications</strong><span>{notifications.length}</span><div className="header-notification-actions">{notifications.some((notification) => !notification.read_at) && <button type="button" onClick={markAllNotificationsRead}>Mark all read</button>}{notifications.some((notification) => notification.read_at) && <button type="button" disabled={isClearingNotifications} onClick={clearReadNotifications}>{isClearingNotifications ? 'Clearing…' : 'Clear read'}</button>}</div></div>
                   {notifications.length ? notifications.map((notification) => (
                     <button type="button" key={notification.id} className={`header-notification-item${notification.read_at ? '' : ' unread'}`} onClick={() => { setNotificationsOpen(false); navigate(notification.order_id ? `/account?tab=orders&order=${encodeURIComponent(notification.order_id)}` : '/account?tab=notifications') }}><strong>{notification.title}</strong><p>{notification.message}</p></button>
                   )) : <p className="header-notification-empty">You’re all caught up.</p>}

@@ -75,7 +75,7 @@ export function AuthProvider({ children }) {
   async function signUp({ email, password, fullName }) {
     if (!supabase) return { error: new Error('Supabase is not configured yet.') }
     const { firstName, lastName } = splitFullName(fullName)
-    const emailRedirectTo = `${window.location.origin}${import.meta.env.BASE_URL}#/login`
+    const emailRedirectTo = `${window.location.origin}${import.meta.env.BASE_URL}login`
     return supabase.auth.signUp({
       email,
       password,
@@ -102,7 +102,7 @@ export function AuthProvider({ children }) {
 
   async function resetPassword(email) {
     if (!supabase) return { error: new Error('Supabase is not configured yet.') }
-    const redirectTo = `${window.location.origin}${import.meta.env.BASE_URL}#/login`
+    const redirectTo = `${window.location.origin}${import.meta.env.BASE_URL}login`
     return supabase.auth.resetPasswordForEmail(email, { redirectTo })
   }
 

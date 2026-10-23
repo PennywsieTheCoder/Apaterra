@@ -1,4 +1,5 @@
-import { Heart, ShoppingBag } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Check, Heart, ShoppingBag } from 'lucide-react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { formatMoney } from '../data/catalog'
 import { useCart } from '../context/cart-store'
@@ -8,13 +9,17 @@ import ProductVisual from './ProductVisual'
 import { useToast } from '../context/toast-store'
 
 export default function ProductCard({ product }) {
-  const { addItem } = useCart()
+  const [added, setAdded] = useState(false)
+  const addedTimerRef = useRef(null)
+  const { addItem, items, setIsOpen } = useCart()
   const { isFavorite, isPending, loading: favoritesLoading, toggleFavorite } = useFavorites()
   const location = useLocation()
   const navigate = useNavigate()
   const { pushToast } = useToast()
   const inventory = getInventoryState(product)
   const saved = isFavorite(product.id)
+
+  useEffect(() => () => window.clearTimeout(addedTimerRef.current), [])
 
   async function handleFavorite() {
     const result = await toggleFavorite(product.id)
@@ -25,6 +30,18 @@ export default function ProductCard({ product }) {
     } else {
       pushToast(saved ? `${product.name} removed from Favorites.` : `${product.name} saved to Favorites.`)
     }
+  }
+
+  function handleAddToCart() {
+    const updatesQuantity = items.some((item) => item.id === product.id)
+    addItem(product)
+    setAdded(true)
+    window.clearTimeout(addedTimerRef.current)
+    addedTimerRef.current = window.setTimeout(() => setAdded(false), 1500)
+    pushToast(updatesQuantity ? `${product.name} quantity updated.` : `${product.name} added to cart.`, {
+      actionLabel: 'View cart',
+      onAction: () => setIsOpen(true),
+    })
   }
   return (
     <article className="product-card" style={{ '--product-card-color': product.cardColor }}>
@@ -52,7 +69,7 @@ export default function ProductCard({ product }) {
           >
             <Heart size={16} fill={saved ? 'currentColor' : 'none'} />
           </button>
-          <button type="button" className="product-add-button" disabled={inventory.isOutOfStock} onClick={() => addItem(product)}><span>{inventory.isOutOfStock ? 'Sold out' : 'Add to cart'}</span><ShoppingBag size={15} /></button>
+          <button type="button" className={`product-add-button${added ? ' is-added' : ''}`} disabled={inventory.isOutOfStock} onClick={handleAddToCart}><span>{inventory.isOutOfStock ? 'Sold out' : added ? 'Added' : 'Add to cart'}</span>{added ? <Check size={15} /> : <ShoppingBag size={15} />}</button>
         </div>
       </div>
     </article>

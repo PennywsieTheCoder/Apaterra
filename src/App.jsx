@@ -8,6 +8,8 @@ import Header from './components/Header'
 import ScrollToTop from './components/ScrollToTop'
 import ProtectedRoute from './components/ProtectedRoute'
 import RouteSkeleton from './components/RouteSkeleton'
+import SeoManager from './components/SeoManager'
+import LegacyHashRedirect from './components/LegacyHashRedirect'
 
 const HomePage = lazy(() => import('./pages/HomePage'))
 const HairNeedsPage = lazy(() => import('./pages/HairNeedsPage'))
@@ -15,17 +17,21 @@ const ProductPage = lazy(() => import('./pages/ProductPage'))
 const RoutinesPage = lazy(() => import('./pages/RoutinesPage'))
 const ShopPage = lazy(() => import('./pages/ShopPage'))
 const StoryPage = lazy(() => import('./pages/StoryPage'))
+const TrustPage = lazy(() => import('./pages/TrustPage'))
 const CheckoutPage = lazy(() => import('./pages/CheckoutPage'))
 const AccountPage = lazy(() => import('./pages/AccountPage'))
 const LoginPage = lazy(() => import('./pages/LoginPage'))
 const AdminPage = lazy(() => import('./pages/AdminPage'))
 
 function App() {
-  const { pathname } = useLocation()
+  const { pathname: routePathname } = useLocation()
+  const pathname = routePathname.length > 1 ? routePathname.replace(/\/+$/, '') : '/'
 
   return (
     <div className="site-shell">
       <ScrollToTop />
+      <LegacyHashRedirect />
+      <SeoManager />
       {pathname !== '/login' && <Header />}
       <Suspense fallback={<RouteSkeleton pathname={pathname} />}>
         <Routes>
@@ -35,6 +41,11 @@ function App() {
           <Route path="/routines" element={<RoutinesPage />} />
           <Route path="/hair-needs" element={<HairNeedsPage />} />
           <Route path="/story" element={<StoryPage />} />
+          <Route path="/delivery" element={<TrustPage page="delivery" />} />
+          <Route path="/returns" element={<TrustPage page="returns" />} />
+          <Route path="/privacy" element={<TrustPage page="privacy" />} />
+          <Route path="/terms" element={<TrustPage page="terms" />} />
+          <Route path="/contact" element={<TrustPage page="contact" />} />
           <Route path="/checkout" element={<ProtectedRoute><CheckoutPage /></ProtectedRoute>} />
           <Route path="/account" element={<ProtectedRoute><AccountPage /></ProtectedRoute>} />
           <Route path="/login" element={<LoginPage />} />

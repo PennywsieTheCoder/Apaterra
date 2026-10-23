@@ -3,6 +3,7 @@ import { products as defaultProducts } from '../data/catalog'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
 import { mapSupabaseProduct } from '../lib/products'
 import { CatalogContext } from './catalog-store'
+import { captureOperationalError } from '../lib/monitoring'
 
 export function CatalogProvider({ children }) {
   const [customProducts, setCustomProducts] = useState([])
@@ -23,6 +24,7 @@ export function CatalogProvider({ children }) {
     ])
 
     if (requestError) {
+      captureOperationalError(requestError, 'catalog_load')
       setError(requestError.message)
     } else {
       setCustomProducts((data || []).map(mapSupabaseProduct))

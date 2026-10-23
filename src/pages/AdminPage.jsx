@@ -15,6 +15,7 @@ import {
   Leaf,
   LogOut,
   MapPin,
+  MessageCircle,
   Moon,
   Package,
   PackagePlus,
@@ -22,6 +23,7 @@ import {
   Plus,
   RotateCcw,
   Search,
+  Settings2,
   ShoppingBag,
   Sparkles,
   Trash2,
@@ -40,6 +42,8 @@ import { calculateFulfilmentRate, isRevenueOrder, sumOrderRevenue, sumOrderUnits
 import { useToast } from '../context/toast-store'
 import ConfirmDialog from '../components/ConfirmDialog'
 import RetryState from '../components/RetryState'
+import { useBusinessSettings } from '../context/business-settings-store'
+import { normalizeExternalUrl } from '../lib/businessSettings'
 
 const initialProduct = {
   name: '',
@@ -261,6 +265,12 @@ export default function AdminPage() {
   const [editingProduct, setEditingProduct] = useState(null)
   const [managedProducts, setManagedProducts] = useState([])
   const { refreshProducts, starterImported } = useCatalog()
+  const {
+    settings: businessSettings,
+    loading: businessSettingsLoading,
+    error: businessSettingsError,
+    refreshSettings: refreshBusinessSettings,
+  } = useBusinessSettings()
   const [databaseOrders, setDatabaseOrders] = useState([])
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [adminNotifications, setAdminNotifications] = useState([])
@@ -274,6 +284,7 @@ export default function AdminPage() {
   const [isSavingDeliveryZone, setIsSavingDeliveryZone] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [isSavingBusinessSettings, setIsSavingBusinessSettings] = useState(false)
   const productFormRef = useRef(null)
 
   useEffect(() => {
@@ -365,7 +376,7 @@ export default function AdminPage() {
 
   async function retryAdminData() {
     setAdminLoadError('')
-    await Promise.all([loadManagedProducts(), loadOrders(), loadNotifications(), loadDeliveryZones()])
+    await Promise.all([loadManagedProducts(), loadOrders(), loadNotifications(), loadDeliveryZones(), refreshBusinessSettings()])
   }
 
   useEffect(() => {
@@ -380,7 +391,11 @@ export default function AdminPage() {
 
   useEffect(() => {
     const loadAdminNotifications = window.setTimeout(loadNotifications, 0)
-    return () => window.clearTimeout(loadAdminNotifications)
+    window.addEventListener('apaterra-notifications-cleared', loadNotifications)
+    return () => {
+      window.clearTimeout(loadAdminNotifications)
+      window.removeEventListener('apaterra-notifications-cleared', loadNotifications)
+    }
   }, [loadNotifications])
 
   useEffect(() => {
@@ -980,6 +995,41 @@ export default function AdminPage() {
     })
   }
 
+  async function saveBusinessSettings(event) {
+    event.preventDefault()
+    if (!supabase || isSavingBusinessSettings) return
+
+    setIsSavingBusinessSettings(true)
+    setMessage('')
+    try {
+      const submitted = Object.fromEntries(new FormData(event.currentTarget))
+      const socialFields = ['instagram_url', 'tiktok_url', 'youtube_url', 'facebook_url']
+      const normalizedSocials = Object.fromEntries(
+        socialFields.map((field) => [field, normalizeExternalUrl(String(submitted[field] || ''))])
+      )
+      const payload = {
+        id: 'main',
+        support_email: String(submitted.support_email || '').trim().toLowerCase(),
+        support_phone: String(submitted.support_phone || '').trim(),
+        whatsapp_number: String(submitted.whatsapp_number || '').trim(),
+        business_address: String(submitted.business_address || '').trim(),
+        operating_hours: String(submitted.operating_hours || '').trim(),
+        ...normalizedSocials,
+        updated_at: new Date().toISOString(),
+      }
+      const { error } = await supabase
+        .from('business_settings')
+        .upsert(payload, { onConflict: 'id' })
+      if (error) throw error
+      await refreshBusinessSettings()
+      setMessage('Business settings saved and published.')
+    } catch (error) {
+      setMessage(error.message || 'Business settings could not be saved.')
+    } finally {
+      setIsSavingBusinessSettings(false)
+    }
+  }
+
   async function confirmDeleteTarget() {
     if (!deleteTarget?.action || isDeleting) return
     setIsDeleting(true)
@@ -999,11 +1049,37 @@ export default function AdminPage() {
     await supabase.from('notifications').update({ read_at: readAt }).is('read_at', null)
   }
 
+  async function clearReadAdminNotificationsConfirmed() {
+    if (!supabase || !user?.id) return
+    const { error } = await supabase
+      .from('notifications')
+      .delete()
+      .eq('user_id', user.id)
+      .not('read_at', 'is', null)
+    if (error) {
+      setMessage('Read notifications could not be cleared. Please try again.')
+      return
+    }
+    setAdminNotifications((current) => current.filter((notification) => !notification.read_at))
+    window.dispatchEvent(new Event('apaterra-notifications-cleared'))
+    setMessage('Read notifications cleared.')
+  }
+
+  function clearReadAdminNotifications() {
+    setDeleteTarget({
+      title: 'Clear read notifications?',
+      description: 'Read store updates will be removed permanently. Unread notifications and inventory alerts will stay visible.',
+      confirmLabel: 'Clear read',
+      action: clearReadAdminNotificationsConfirmed,
+    })
+  }
+
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutGrid },
     { id: 'sales', label: 'Sales & Reports', icon: BarChart3 },
     { id: 'orders', label: 'Orders', icon: ClipboardList },
     { id: 'delivery', label: 'Delivery', icon: MapPin },
+    { id: 'business', label: 'Business', icon: Settings2 },
     { id: 'add-product', label: 'Add Product', icon: PackagePlus },
   ]
 
@@ -1087,7 +1163,10 @@ export default function AdminPage() {
                 <div className="admin-notification-popover">
                   <div className="admin-notification-header">
                     <strong>Store notifications</strong>
-                    <span>{inventoryAlerts.length + unreadAdminNotifications.length}</span>
+                    <div className="admin-notification-actions">
+                      <span>{inventoryAlerts.length + unreadAdminNotifications.length}</span>
+                      {adminNotifications.some((notification) => notification.read_at) && <button type="button" onClick={clearReadAdminNotifications}>Clear read</button>}
+                    </div>
                   </div>
                   <ul>
                     {adminNotifications.slice(0, 3).map((notification) => (
@@ -1797,7 +1876,66 @@ export default function AdminPage() {
               </div>
             )}
 
-            {/* ==================== 4. ADD & MANAGE PRODUCTS SECTION ==================== */}
+            {activeSection === 'business' && (
+              <div className="admin-section-view">
+                <div className="admin-section-header">
+                  <div>
+                    <span className="admin-eyebrow">Store identity</span>
+                    <h2>Business Settings</h2>
+                    <p className="admin-card-sub">Publish customer-care details and official social channels across the storefront.</p>
+                  </div>
+                  <Link className="admin-sage-btn" to="/contact">View contact page <ArrowUpRight size={15} /></Link>
+                </div>
+
+                {businessSettingsError && (
+                  <RetryState
+                    compact
+                    title="Business settings are not available yet."
+                    message="Run supabase/business_settings.sql in Supabase, then retry."
+                    onRetry={refreshBusinessSettings}
+                  />
+                )}
+
+                <form className="admin-business-settings" key={businessSettings.updated_at || 'business-settings'} onSubmit={saveBusinessSettings}>
+                  <article className="admin-bento-card admin-business-card">
+                    <div className="admin-card-head">
+                      <div><h3>Customer care</h3><p className="admin-card-sub">Only completed fields are shown publicly.</p></div>
+                      <MessageCircle size={20} />
+                    </div>
+                    <div className="admin-business-fields">
+                      <label><span>Support email</span><input name="support_email" type="email" autoComplete="email" defaultValue={businessSettings.support_email} placeholder="care@example.com" /></label>
+                      <label><span>Support phone</span><input name="support_phone" type="tel" autoComplete="tel" defaultValue={businessSettings.support_phone} placeholder="+233 00 000 0000" /></label>
+                      <label><span>WhatsApp number</span><input name="whatsapp_number" type="tel" inputMode="tel" defaultValue={businessSettings.whatsapp_number} placeholder="+233 00 000 0000" /></label>
+                      <label><span>Operating hours</span><input name="operating_hours" defaultValue={businessSettings.operating_hours} placeholder="Mon–Sat, 9:00 am–5:00 pm" /></label>
+                      <label className="full"><span>Business address</span><textarea name="business_address" rows="3" defaultValue={businessSettings.business_address} placeholder="Area, city and region" /></label>
+                    </div>
+                  </article>
+
+                  <article className="admin-bento-card admin-business-card">
+                    <div className="admin-card-head">
+                      <div><h3>Social media</h3><p className="admin-card-sub">Paste the official profile link. Leave unused channels blank.</p></div>
+                      <ArrowUpRight size={20} />
+                    </div>
+                    <div className="admin-business-fields one-column">
+                      <label><span>Instagram</span><input name="instagram_url" inputMode="url" defaultValue={businessSettings.instagram_url} placeholder="instagram.com/apaterra" /></label>
+                      <label><span>TikTok</span><input name="tiktok_url" inputMode="url" defaultValue={businessSettings.tiktok_url} placeholder="tiktok.com/@apaterra" /></label>
+                      <label><span>YouTube</span><input name="youtube_url" inputMode="url" defaultValue={businessSettings.youtube_url} placeholder="youtube.com/@apaterra" /></label>
+                      <label><span>Facebook</span><input name="facebook_url" inputMode="url" defaultValue={businessSettings.facebook_url} placeholder="facebook.com/apaterra" /></label>
+                    </div>
+                  </article>
+
+                  <div className="admin-business-actions">
+                    <p>Changes appear on the Contact page and footer immediately after saving.</p>
+                    <button className="admin-sage-btn" type="submit" disabled={isSavingBusinessSettings || businessSettingsLoading || Boolean(businessSettingsError)}>
+                      {isSavingBusinessSettings ? 'Publishing…' : 'Save & publish'}
+                    </button>
+                  </div>
+                  {message && <p className={message.includes('saved') ? 'admin-order-feedback success' : 'admin-order-feedback error'} role="status">{message}</p>}
+                </form>
+              </div>
+            )}
+
+            {/* ==================== ADD & MANAGE PRODUCTS SECTION ==================== */}
             {activeSection === 'add-product' && (
               <div className="admin-section-view">
                 <div className="admin-section-header">

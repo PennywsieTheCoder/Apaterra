@@ -7,12 +7,26 @@ import { useAuth } from '../context/auth-store'
 import { formatMoney } from '../data/catalog'
 import { supabase } from '../lib/supabase'
 import RetryState from '../components/RetryState'
+import { trackEvent } from '../lib/analytics'
+import { captureOperationalError } from '../lib/monitoring'
 
 const regions = [
   'Ahafo', 'Ashanti', 'Bono', 'Bono East', 'Central', 'Eastern', 'Greater Accra',
   'North East', 'Northern', 'Oti', 'Savannah', 'Upper East', 'Upper West',
   'Volta', 'Western', 'Western North',
 ]
+
+const emptyCheckoutDetails = {
+  firstName: '',
+  lastName: '',
+  email: '',
+  phone: '',
+  region: '',
+  city: '',
+  address: '',
+  landmark: '',
+  notes: '',
+}
 
 function createCheckoutRequestId() {
   if (window.crypto?.randomUUID) return window.crypto.randomUUID()
@@ -71,14 +85,17 @@ export default function CheckoutPage() {
   const [deliveryDataError, setDeliveryDataError] = useState('')
   const [addressLoadError, setAddressLoadError] = useState('')
   const [checkoutDataReloadKey, setCheckoutDataReloadKey] = useState(0)
-  const [formValues, setFormValues] = useState(() => {
-    try {
-      const saved = JSON.parse(window.localStorage.getItem('apaterra-profile') || '{}')
-      return { firstName: '', lastName: '', email: '', phone: '', region: '', city: '', address: '', landmark: '', notes: '', ...saved }
-    } catch {
-      return { firstName: '', lastName: '', email: '', phone: '', region: '', city: '', address: '', landmark: '', notes: '' }
-    }
-  })
+  const [formValues, setFormValues] = useState(emptyCheckoutDetails)
+  const checkoutTrackedRef = useRef(false)
+
+  useEffect(() => {
+    if (checkoutTrackedRef.current || !items.length) return
+    checkoutTrackedRef.current = true
+    trackEvent('checkout_started', {
+      itemCount: items.reduce((total, item) => total + item.quantity, 0),
+      cartValue: subtotal,
+    })
+  }, [items, subtotal])
 
   useEffect(() => {
     if (!authProfile && !user) return
@@ -89,9 +106,6 @@ export default function CheckoutPage() {
         lastName: authProfile?.last_name || user?.user_metadata?.last_name || current.lastName,
         email: authProfile?.email || user?.email || current.email,
         phone: authProfile?.phone || current.phone,
-        region: authProfile?.region || current.region,
-        city: authProfile?.city || current.city,
-        address: authProfile?.address || current.address,
       }))
     }, 0)
     return () => window.clearTimeout(syncProfile)
@@ -122,6 +136,7 @@ export default function CheckoutPage() {
     supabase
       .from('delivery_addresses')
       .select('*')
+      .eq('user_id', user.id)
       .order('is_default', { ascending: false })
       .order('created_at', { ascending: true })
       .then(({ data, error }) => {
@@ -223,10 +238,16 @@ export default function CheckoutPage() {
     })
 
     if (error) {
+      captureOperationalError(error, 'checkout_place_order', { code: error.code || 'unknown' })
+      trackEvent('checkout_failed', { stage: 'place_order' })
       setSubmitError(error.message)
       setIsSubmitting(false)
       return
     }
+    trackEvent('order_completed', {
+      itemCount: items.reduce((total, item) => total + item.quantity, 0),
+      cartValue: subtotal,
+    })
     setOrderReference(data.reference)
     window.sessionStorage.removeItem('apaterra-checkout-request')
     clearCart()

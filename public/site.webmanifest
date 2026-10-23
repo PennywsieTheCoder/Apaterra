@@ -1,0 +1,22 @@
+{
+  "name": "Apa Terra",
+  "short_name": "Apa Terra",
+  "description": "Natural care for African-textured hair.",
+  "start_url": "/Apaterra/",
+  "scope": "/Apaterra/",
+  "display": "standalone",
+  "background_color": "#f5f3ea",
+  "theme_color": "#152d25",
+  "icons": [
+    {
+      "src": "apaterra-favicon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "apaterra-favicon-white.png",
+      "sizes": "256x256",
+      "type": "image/png"
+    }
+  ]
+}

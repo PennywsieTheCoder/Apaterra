@@ -1,5 +1,6 @@
 import { Component } from 'react'
 import { AlertTriangle, Home, RefreshCw } from 'lucide-react'
+import { captureRenderError } from '../lib/monitoring'
 
 export default class AppErrorBoundary extends Component {
   constructor(props) {
@@ -13,6 +14,7 @@ export default class AppErrorBoundary extends Component {
 
   componentDidCatch(error, info) {
     console.error('Apa Terra application error', error, info)
+    captureRenderError(error, info.componentStack)
   }
 
   render() {
@@ -27,7 +29,7 @@ export default class AppErrorBoundary extends Component {
           <p>Your account and order information are safe. Try loading the page again.</p>
           <div>
             <button type="button" onClick={() => window.location.reload()}><RefreshCw size={16} /> Try again</button>
-            <a href={`${import.meta.env.BASE_URL}#/`}><Home size={16} /> Return home</a>
+            <a href={import.meta.env.BASE_URL}><Home size={16} /> Return home</a>
           </div>
         </section>
       </main>

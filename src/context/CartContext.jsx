@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { getInventoryState } from '../lib/inventory'
+import { trackEvent } from '../lib/analytics'
 import { CartContext } from './cart-store'
 
 export function CartProvider({ children }) {
@@ -9,15 +10,15 @@ export function CartProvider({ children }) {
   function addItem(product, quantity = 1) {
     const inventory = getInventoryState(product)
     if (inventory.isOutOfStock) return
+    const requestedQuantity = Math.max(1, Number(quantity) || 1)
     setItems((current) => {
       const existing = current.find((item) => item.id === product.id)
-      const requestedQuantity = Math.max(1, Number(quantity) || 1)
       if (existing) return current.map((item) => item.id === product.id
         ? { ...item, quantity: inventory.tracksStock ? Math.min(item.quantity + requestedQuantity, inventory.stock) : item.quantity + requestedQuantity }
         : item)
       return [...current, { ...product, quantity: inventory.tracksStock ? Math.min(requestedQuantity, inventory.stock) : requestedQuantity }]
     })
-    setIsOpen(true)
+    trackEvent('add_to_cart', { productId: product.id, quantity: requestedQuantity })
   }
 
   function changeQuantity(productId, quantity) {

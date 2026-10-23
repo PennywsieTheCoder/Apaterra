@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /Apaterra/account
+Disallow: /Apaterra/admin
+Disallow: /Apaterra/checkout
+Disallow: /Apaterra/login
+Sitemap: https://pennywsiethecoder.github.io/Apaterra/sitemap.xml

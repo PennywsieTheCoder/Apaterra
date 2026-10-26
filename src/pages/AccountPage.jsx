@@ -244,8 +244,17 @@ export default function AccountPage() {
     let active = true
     async function loadAccountActivity() {
       const [{ data, error }, { data: notificationData, error: notificationError }] = await Promise.all([
-        supabase.from('orders').select('*, order_items(*)').order('created_at', { ascending: false }),
-        supabase.from('notifications').select('*').order('created_at', { ascending: false }).limit(30),
+        supabase
+          .from('orders')
+          .select('*, order_items(*)')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('notifications')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(30),
       ])
       if (!active) return
       if (error) setOrdersError(error.message)
